@@ -1,238 +1,252 @@
-🧠 Cognitive AI System
-Local Multi-User Adaptive Cognitive Engagement Platform
+# Proactive Voice-Based LLM + RAG Dementia Companion
 
-A fully offline, research-oriented cognitive engagement system built using:
+A proactive voice-first cognitive companion system built using **Llama 3 + Retrieval-Augmented Generation (RAG)** to support structured memory recall and longitudinal cognitive tracking for dementia research.
 
-🦙 Llama 3 (via Ollama)
+---
 
-🧠 Retrieval-Augmented Generation (ChromaDB + Sentence Transformers)
+## 🎯 Project Purpose
 
-🗄 SQLite structured cognitive metrics
+This project explores how a voice-based Large Language Model (LLM) integrated with structured memory retrieval can:
 
-👥 Multi-user isolation
+- Initiate proactive daily conversations  
+- Support safe recall of personal memories  
+- Track cognitive interaction metrics over time  
+- Provide structured longitudinal analytics for caregivers  
 
-🔄 Adaptive difficulty engine
+> ⚠️ This is a research prototype and NOT a medical device.
 
-⚡ FastAPI backend
+---
 
-Designed as a foundation for dementia research and structured cognitive monitoring.
+## 🚀 Core Features
 
-🎯 Project Goal
-To build a:
+- 🎤 Voice-first interaction (Speech-to-Text + Text-to-Speech)
+- 🧠 Structured caregiver-fed personal memory graph
+- 🔍 Retrieval-only personal memory recall (hallucination-safe)
+- 📊 Multi-domain cognitive interaction tracking
+- 📈 Longitudinal trend analytics
+- ⏰ Proactive scheduled sessions
+- 🔒 Guardrails to prevent fabricated memories
 
-Local, multi-user, adaptive cognitive engagement system
-that tracks structured performance metrics and dynamically adjusts difficulty over time.
+---
 
-The system operates fully offline and supports longitudinal cognitive monitoring for 10–20 users.
+## 🏗 System Architecture
 
-🏗 System Architecture
-User Request
-     ↓
+```
+User Speech
+    ↓
+Speech-to-Text
+    ↓
 FastAPI Backend
-     ↓
+    ↓
 Retrieve Memory (ChromaDB + Embeddings)
-     ↓
+    ↓
 Inject Context + Difficulty Level
-     ↓
-Llama 3 (via Ollama)
-     ↓
+    ↓
+Llama 3 (Ollama)
+    ↓
 Structured Logging (SQLite)
-     ↓
+    ↓
 Adaptive Difficulty Update
-🔧 Core Components
-1️⃣ Backend Framework
-FastAPI
+    ↓
+Text-to-Speech Response
+```
 
-REST endpoints for:
+---
 
-/users
+## 🧩 Tech Stack
 
-/chat
+| Layer        | Technology |
+|--------------|------------|
+| LLM          | Llama 3 (Ollama) |
+| RAG          | ChromaDB + Sentence Transformers |
+| Backend      | FastAPI |
+| Database     | SQLite |
+| Voice        | Faster-Whisper + pyttsx3 |
+| Scheduler    | APScheduler |
+| Analytics    | Pandas + Plotly + Streamlit |
 
-/sessions
+---
 
-Modular architecture (app/, database/, rag/, llm/)
+## 🗄 Database Schema
 
-2️⃣ Local LLM Integration
-Llama 3 served via Ollama
+### Users
 
-CPU-only configuration (GPU disabled permanently)
+- `id` (INTEGER)
+- `name` (TEXT)
+- `age` (INTEGER)
+- `caregiver_notes` (TEXT)
+- `difficulty_level` (INTEGER 1–5)
 
-Fully offline inference
+### Sessions
 
-3️⃣ Retrieval-Augmented Generation (RAG)
-Embeddings: sentence-transformers (all-MiniLM-L6-v2)
+- `id` (INTEGER)
+- `user_id` (INTEGER)
+- `session_type` (TEXT)
+- `timestamp` (DATETIME)
 
-Vector DB: ChromaDB
+### Task Logs
 
-Memory stored per user using metadata filtering
+- `id` (INTEGER)
+- `session_id` (INTEGER)
+- `task_type` (TEXT)
+- `accuracy` (REAL)
+- `latency` (REAL)
+- `hints_used` (INTEGER)
 
-Context injected dynamically into prompts
+---
 
-4️⃣ Multi-User Support
-Structured users table
+## 🔄 Adaptive Difficulty Engine
 
-Per-user memory isolation
-
-Independent difficulty levels
-
-Session-based tracking
-
-5️⃣ SQLite Database Schema
-users
-Column	Type
-id	INTEGER
-name	TEXT
-age	INTEGER
-caregiver_notes	TEXT
-difficulty_level	INTEGER (1–5)
-sessions
-Column	Type
-id	INTEGER
-user_id	INTEGER
-session_type	TEXT
-timestamp	DATETIME
-task_logs
-Column	Type
-id	INTEGER
-session_id	INTEGER
-task_type	TEXT
-accuracy	REAL
-latency	REAL
-hints_used	INTEGER
-6️⃣ Adaptive Difficulty Engine
 Rules:
 
-Average accuracy > 80% → Increase difficulty
-
-Average accuracy < 50% → Decrease difficulty
-
-Difficulty range: 1 (easy) to 5 (hard)
+- Accuracy > 80% → Increase difficulty
+- Accuracy < 50% → Decrease difficulty
+- Difficulty range: 1 (easy) to 5 (hard)
 
 Difficulty level is injected directly into the LLM prompt to dynamically control cognitive load.
 
-🚀 Setup Instructions
-1️⃣ Clone Repository
-git clone https://github.com/YOUR_USERNAME/cognitive-ai-system.git
+---
+
+## ⚙️ Setup Instructions
+
+### 1️⃣ Clone Repository
+
+```bash
+git clone https://github.com/harshinibonde/cognitive-ai-system.git
 cd cognitive-ai-system
-2️⃣ Create Virtual Environment
+```
+
+---
+
+### 2️⃣ Create Virtual Environment
+
+```bash
 python -m venv venv
+```
+
 Activate:
 
-Windows
-
+**Windows**
+```bash
 venv\Scripts\activate
-Mac/Linux
+```
 
+**Mac/Linux**
+```bash
 source venv/bin/activate
-3️⃣ Install Dependencies
-pip install fastapi uvicorn
-pip install chromadb sentence-transformers
-pip install numpy pandas requests
-pip install apscheduler
-pip install plotly streamlit
-pip install faster-whisper
-pip install pyttsx3
-4️⃣ Install Ollama
-Download from:
+```
+
+---
+
+### 3️⃣ Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+If you do not yet have `requirements.txt`, install manually:
+
+```bash
+pip install fastapi uvicorn chromadb sentence-transformers
+pip install numpy pandas requests apscheduler
+pip install plotly streamlit faster-whisper pyttsx3
+```
+
+---
+
+### 4️⃣ Install Ollama
+
+Download from:  
 https://ollama.com
 
 Pull Llama 3:
 
+```bash
 ollama pull llama3
+```
+
 Test:
 
+```bash
 ollama run llama3
-5️⃣ Disable GPU (Permanent CPU Mode)
-Create file:
+```
 
-C:\Users\YOUR_USER\.ollama\config.yaml
+---
+
+### 5️⃣ Disable GPU — Force CPU Mode
+
+Create:
+
+```
+C:\Users\ASUS\.ollama\config.yaml
+```
+
 Add:
 
+```yaml
 gpu: false
-6️⃣ Start Backend
+```
+
+---
+
+### 6️⃣ Start Backend
+
+```bash
 uvicorn app.main:app --reload
+```
+
 Open:
 
+```
 http://127.0.0.1:8000/docs
-📊 Current Feature Status
-Feature	Status
-LLM Integration	✅ Complete
-RAG Memory	✅ Complete
-Multi-user Isolation	✅ Complete
-Structured Logging	✅ Complete
-Adaptive Difficulty	✅ Complete
-Voice Layer	🔜 Planned
-Scheduler	🔜 Planned
-Analytics Dashboard	🔜 Planned
-🛣 Roadmap
-Phase 1
-Database stabilization
+```
 
-LLM + RAG integration
+---
 
-Phase 2
-Adaptive difficulty controller
+## 📊 Current Status
 
-Structured cognitive scoring
+| Component              | Status |
+|------------------------|--------|
+| LLM Integration        | ✅ Complete |
+| RAG Memory             | ✅ Complete |
+| Multi-user Isolation   | ✅ Complete |
+| Adaptive Difficulty    | ✅ Complete |
+| Voice Layer            | 🔜 In Progress |
+| Scheduler              | 🔜 Planned |
+| Analytics Dashboard    | 🔜 Planned |
 
-Phase 3 (Upcoming)
-🎤 Speech-to-Text (Faster-Whisper)
+---
 
-🔊 Text-to-Speech
+## 🔐 Privacy & Architecture
 
-⏰ APScheduler proactive sessions
+- Fully offline  
+- No external LLM APIs  
+- No cloud storage  
+- No telemetry  
+- All processing occurs locally  
 
-Phase 4
-📈 Streamlit analytics dashboard
+---
 
-Longitudinal cognitive trend visualization
+## 📂 Project Structure
 
-🧪 Research Use Case
-This system enables:
-
-Longitudinal cognitive tracking
-
-Memory recall performance measurement
-
-Response latency analysis
-
-Difficulty adaptation over time
-
-Structured session logging
-
-Designed as a foundation for dementia research and cognitive engagement studies.
-
-🔐 Privacy & Architecture
-Fully offline
-
-No API calls
-
-No external LLM services
-
-No cloud storage
-
-No telemetry
-
-All processing occurs locally.
-
-📦 Project Structure
+```
 cognitive-ai-system/
 │
 ├── app/
 │   └── main.py
-│
 ├── database/
 │   └── db.py
-│
 ├── llm/
 │   └── ollama_client.py
-│
 ├── rag/
 │   └── vector_store.py
-│
 ├── chroma_storage/
 ├── cognitive_system.db
 └── README.md
-👨‍💻 Author
+```
+
+---
+
+## 👨‍💻 Author
+
 Developed as a research-grade local cognitive AI system.
