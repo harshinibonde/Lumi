@@ -212,8 +212,8 @@ http://127.0.0.1:8000/docs
 | Multi-user Isolation   | ✅ Complete |
 | Adaptive Difficulty    | ✅ Complete |
 | Voice Layer            | 🔜 In Progress |
-| Scheduler              | 🔜 Planned |
-| Analytics Dashboard    | 🔜 Planned |
+| Scheduler              | 🔜 In Progress |
+| Analytics Dashboard    | 🔜 In Progress |
 
 ---
 
