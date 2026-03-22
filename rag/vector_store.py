@@ -1,10 +1,22 @@
+import os
+from pathlib import Path
+
 import chromadb
 from chromadb.config import Settings
+from dotenv import load_dotenv
 from sentence_transformers import SentenceTransformer
 
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_PROJECT_ROOT / ".env")
 
-client = chromadb.Client(Settings(persist_directory="./chroma_storage"))
+_CHROMA_DIR = os.getenv(
+    "CHROMA_PERSIST_DIR", str(_PROJECT_ROOT / "chroma_storage")
+)
+_EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+
+embedding_model = SentenceTransformer(_EMBEDDING_MODEL)
+
+client = chromadb.Client(Settings(persist_directory=_CHROMA_DIR))
 collection = client.get_or_create_collection(name="memory_collection")
 
 

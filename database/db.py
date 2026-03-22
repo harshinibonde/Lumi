@@ -1,6 +1,13 @@
+import os
 import sqlite3
+from pathlib import Path
 
-DB_NAME = "cognitive_system.db"
+from dotenv import load_dotenv
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(_PROJECT_ROOT / ".env")
+
+DB_NAME = os.getenv("COGNITIVE_DB_PATH", str(_PROJECT_ROOT / "cognitive_system.db"))
 
 
 def get_connection():
@@ -128,6 +135,37 @@ def get_user(user_id: int) -> dict | None:
         "caregiver_notes": row[3] or "",
         "difficulty_level": row[4],
     }
+
+
+def fetch_user_task_history(user_id: int, limit: int = 500) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT tl.id, tl.accuracy, tl.latency, tl.task_type, tl.hints_used,
+               IFNULL(s.timestamp, ''), s.session_type
+        FROM task_logs tl
+        JOIN sessions s ON tl.session_id = s.id
+        WHERE s.user_id = ?
+        ORDER BY tl.id ASC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [
+        {
+            "log_id": r[0],
+            "accuracy": r[1],
+            "latency": r[2],
+            "task_type": r[3],
+            "hints_used": r[4],
+            "session_timestamp": r[5],
+            "session_type": r[6],
+        }
+        for r in rows
+    ]
 
 
 def session_belongs_to_user(session_id: int, user_id: int) -> bool:

@@ -14,5 +14,8 @@ chroma_storage/
 # Environment files
 .env
 
+# Local backups (see scripts/backup.ps1)
+backups/
+
 # Ollama config
 .ollama/
