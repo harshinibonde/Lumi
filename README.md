@@ -61,6 +61,7 @@ Text-to-Speech Response
 | RAG          | ChromaDB + Sentence Transformers |
 | Backend      | FastAPI |
 | Database     | SQLite |
+| Frontend     | Streamlit + HTML + CSS + JavaScript |
 | Voice        | Faster-Whisper + pyttsx3 |
 | Scheduler    | APScheduler |
 | Analytics    | Pandas + Plotly + Streamlit |
