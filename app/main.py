@@ -16,16 +16,21 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from starlette.requests import Request
 
+from cognitive.insights import build_behavioral_insights, sessions_per_day_from_logs
 from cognitive.scoring import blended_turn_accuracy
 from database.db import (
     create_session,
+    fetch_difficulty_history,
+    fetch_sessions_per_day,
     fetch_user_task_history,
     get_connection,
     get_user,
     initialize_database,
+    log_difficulty_change,
     log_task,
     session_belongs_to_user,
 )
+from notifications.email_reminder import send_cognitive_reminder, smtp_configured
 from llm.ollama_client import (
     OllamaGenerationError,
     check_ollama_reachable,
@@ -67,6 +72,8 @@ def update_difficulty(user_id: int) -> None:
         new_difficulty += 1
     elif avg_accuracy < 0.5 and current_difficulty > 1:
         new_difficulty -= 1
+    if new_difficulty != current_difficulty:
+        log_difficulty_change(user_id, current_difficulty, new_difficulty)
     cursor.execute(
         "UPDATE users SET difficulty_level = ? WHERE id = ?",
         (new_difficulty, user_id),
@@ -82,7 +89,9 @@ def _memory_context_for_query(query: str, user_id: int) -> str:
     return "(No relevant memories stored yet.)"
 
 
-def run_proactive_session(user_id: int, session_type: str) -> dict:
+def run_proactive_session(
+    user_id: int, session_type: str, send_email_reminder: bool = False
+) -> dict:
     user = get_user(user_id)
     if not user:
         raise ValueError("User not found")
@@ -90,14 +99,16 @@ def run_proactive_session(user_id: int, session_type: str) -> dict:
     context = _memory_context_for_query(rag_query, user_id)
     difficulty = user["difficulty_level"]
     notes = user["caregiver_notes"] or "None provided."
-    prompt = f"""You are a warm cognitive engagement companion starting a new conversation.
-The user is {user['name']}, age {user['age']}.
-Caregiver context (private): {notes}
-Current cognitive activity difficulty level: {difficulty} (1 = very easy, 5 = challenging).
-Relevant long-term memory snippets:
+    prompt = f"""You are an expert, empathetic cognitive engagement companion (not a doctor).
+You initiate contact to support memory, language, and social cognition through friendly conversation.
+
+User: {user['name']}, age {user['age']}.
+Caregiver notes (private): {notes}
+Adaptive difficulty level: {difficulty} (1 = very supportive and simple, 5 = richer vocabulary and multi-step prompts).
+Retrieved personal context:
 {context}
 
-Instructions: Send ONE opening message only. Greet them by name if it feels natural, briefly acknowledge something from memory if relevant, then include one gentle cognitive prompt or question suited to difficulty level {difficulty}. Keep it concise and friendly."""
+Compose exactly ONE first message: warm greeting using their name when natural, one sentence that ties to memory context if helpful, then ONE clear cognitive-friendly question or mini-activity matching level {difficulty}. Avoid clinical jargon; be concise; do not mention being an AI or difficulty numbers."""
     start = time.time()
     reply = generate_response(prompt)
     latency = time.time() - start
@@ -110,7 +121,16 @@ Instructions: Send ONE opening message only. Greet them by name if it feels natu
         accuracy=0.75,
         latency=latency,
         hints_used=0,
+        task_focus="",
     )
+    if (
+        send_email_reminder
+        and user.get("email")
+        and smtp_configured()
+        and os.getenv("REMINDER_EMAIL_ON_SCHEDULED", "true").lower()
+        in ("1", "true", "yes")
+    ):
+        send_cognitive_reminder(user["email"], user["name"], reply)
     return {
         "response": reply,
         "session_id": session_id,
@@ -126,7 +146,9 @@ def scheduled_opening_job() -> None:
     conn.close()
     for uid in user_ids:
         try:
-            run_proactive_session(uid, "scheduled_proactive")
+            run_proactive_session(
+                uid, "scheduled_proactive", send_email_reminder=True
+            )
             logger.info("Scheduled proactive session created for user %s", uid)
         except Exception:
             logger.exception("Scheduled proactive failed for user %s", uid)
@@ -181,12 +203,18 @@ class ChatRequest(BaseModel):
     message: str
     session_id: int | None = None
     hints_used: int = Field(default=0, ge=0)
+    task_focus: str = Field(
+        default="",
+        max_length=120,
+        description="Optional focus e.g. memory_recall, language_fluency, attention",
+    )
 
 
 class CreateUserRequest(BaseModel):
     name: str
     age: int
     caregiver_notes: str = ""
+    email: str = Field(default="", max_length=200)
 
 
 class StartSessionRequest(BaseModel):
@@ -268,7 +296,18 @@ def user_analytics(user_id: int, limit: int = 500):
     }
     sessions_count = len({r["session_timestamp"] + r["session_type"] for r in rows})
     summary["approx_distinct_sessions"] = sessions_count
-    return {"summary": summary, "series": rows}
+    difficulty_timeline = fetch_difficulty_history(user_id, limit=200)
+    sessions_by_day = fetch_sessions_per_day(user_id, days=90)
+    interaction_days = sessions_per_day_from_logs(rows)
+    insights = build_behavioral_insights(rows)
+    return {
+        "summary": summary,
+        "series": rows,
+        "difficulty_timeline": difficulty_timeline,
+        "sessions_by_day": sessions_by_day,
+        "interaction_events_by_day": interaction_days,
+        "insights": insights,
+    }
 
 
 @app.get("/users/{user_id}/latest-scheduled-opening")
@@ -366,15 +405,19 @@ def chat(request: ChatRequest):
     difficulty = cursor.fetchone()[0]
     conn.close()
 
-    full_prompt = f"""
-    You are conducting a cognitive training session.
-    Current difficulty level: {difficulty}
-    (1 = very easy, 5 = very challenging)
-    Use the following memory context to answer:
-    {context}
-    User question:
-    {request.message}
-    """
+    focus_line = (
+        f"Session focus (if empty, balance all skills): {request.task_focus.strip() or 'general engagement'}.\n"
+    )
+    full_prompt = f"""You are a skilled cognitive engagement coach: supportive, patient, clear, never diagnostic.
+Adapt vocabulary and step count to difficulty {difficulty} (1=short simple sentences; 5=gentle complexity).
+{focus_line}
+Personal memory context (RAG):
+{context}
+
+User message:
+{request.message}
+
+Respond helpfully: acknowledge them, answer or guide the activity, and when appropriate ask one follow-up that fits their level. Do not claim medical authority."""
 
     reply = generate_response(full_prompt)
     latency = time.time() - start_time
@@ -397,6 +440,7 @@ def chat(request: ChatRequest):
         accuracy,
         latency,
         request.hints_used,
+        request.task_focus or "",
     )
 
     update_difficulty(request.user_id)
@@ -414,10 +458,10 @@ def create_user(request: CreateUserRequest):
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO users (name, age, caregiver_notes)
-        VALUES (?, ?, ?)
+        INSERT INTO users (name, age, caregiver_notes, email)
+        VALUES (?, ?, ?, ?)
         """,
-        (request.name, request.age, request.caregiver_notes),
+        (request.name, request.age, request.caregiver_notes, request.email.strip() or None),
     )
     user_id = cursor.lastrowid
     conn.commit()

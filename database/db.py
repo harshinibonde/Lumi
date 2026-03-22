@@ -21,13 +21,34 @@ def _migrate_task_logs_text_columns(cursor):
         cursor.execute("ALTER TABLE task_logs ADD COLUMN user_message TEXT")
     if "assistant_message" not in cols:
         cursor.execute("ALTER TABLE task_logs ADD COLUMN assistant_message TEXT")
+    if "task_focus" not in cols:
+        cursor.execute("ALTER TABLE task_logs ADD COLUMN task_focus TEXT")
+
+
+def _migrate_users_email(cursor):
+    cursor.execute("PRAGMA table_info(users)")
+    cols = {row[1] for row in cursor.fetchall()}
+    if "email" not in cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
+
+
+def _ensure_difficulty_history(cursor):
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS difficulty_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            old_level INTEGER NOT NULL,
+            new_level INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+    """)
 
 
 def initialize_database():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Users table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -38,7 +59,6 @@ def initialize_database():
         )
     """)
 
-    # Sessions table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +69,6 @@ def initialize_database():
         )
     """)
 
-    # Task logs table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS task_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,9 +82,66 @@ def initialize_database():
     """)
 
     _migrate_task_logs_text_columns(cursor)
+    _migrate_users_email(cursor)
+    _ensure_difficulty_history(cursor)
 
     conn.commit()
     conn.close()
+
+
+def log_difficulty_change(user_id: int, old_level: int, new_level: int) -> None:
+    if old_level == new_level:
+        return
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO difficulty_history (user_id, old_level, new_level)
+        VALUES (?, ?, ?)
+        """,
+        (user_id, old_level, new_level),
+    )
+    conn.commit()
+    conn.close()
+
+
+def fetch_difficulty_history(user_id: int, limit: int = 200) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT old_level, new_level, created_at
+        FROM difficulty_history
+        WHERE user_id = ?
+        ORDER BY id ASC
+        LIMIT ?
+        """,
+        (user_id, limit),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [
+        {"old_level": r[0], "new_level": r[1], "created_at": r[2]} for r in rows
+    ]
+
+
+def fetch_sessions_per_day(user_id: int, days: int = 90) -> list[dict]:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT date(timestamp) AS d, COUNT(*) AS c
+        FROM sessions
+        WHERE user_id = ?
+          AND date(timestamp) >= date('now', ?)
+        GROUP BY date(timestamp)
+        ORDER BY d ASC
+        """,
+        (user_id, f"-{int(days)} days"),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [{"day": r[0], "sessions": r[1]} for r in rows]
 
 
 def create_session(user_id: int, session_type: str) -> int:
@@ -89,6 +165,7 @@ def log_task(
     accuracy: float,
     latency: float,
     hints_used: int = 0,
+    task_focus: str = "",
 ):
     conn = get_connection()
     cursor = conn.cursor()
@@ -96,9 +173,9 @@ def log_task(
         """
         INSERT INTO task_logs (
             session_id, task_type, accuracy, latency, hints_used,
-            user_message, assistant_message
+            user_message, assistant_message, task_focus
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             session_id,
@@ -108,6 +185,7 @@ def log_task(
             hints_used,
             user_message,
             assistant_message,
+            task_focus or "",
         ),
     )
     conn.commit()
@@ -119,7 +197,7 @@ def get_user(user_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT id, name, age, caregiver_notes, difficulty_level
+        SELECT id, name, age, caregiver_notes, difficulty_level, email
         FROM users WHERE id = ?
         """,
         (user_id,),
@@ -134,6 +212,7 @@ def get_user(user_id: int) -> dict | None:
         "age": row[2],
         "caregiver_notes": row[3] or "",
         "difficulty_level": row[4],
+        "email": row[5] or "",
     }
 
 
@@ -143,7 +222,8 @@ def fetch_user_task_history(user_id: int, limit: int = 500) -> list[dict]:
     cursor.execute(
         """
         SELECT tl.id, tl.accuracy, tl.latency, tl.task_type, tl.hints_used,
-               IFNULL(s.timestamp, ''), s.session_type
+               IFNULL(s.timestamp, ''), s.session_type,
+               IFNULL(tl.task_focus, '')
         FROM task_logs tl
         JOIN sessions s ON tl.session_id = s.id
         WHERE s.user_id = ?
@@ -163,6 +243,7 @@ def fetch_user_task_history(user_id: int, limit: int = 500) -> list[dict]:
             "hints_used": r[4],
             "session_timestamp": r[5],
             "session_type": r[6],
+            "task_focus": r[7],
         }
         for r in rows
     ]
