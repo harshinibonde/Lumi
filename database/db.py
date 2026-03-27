@@ -45,6 +45,33 @@ def _ensure_difficulty_history(cursor):
     """)
 
 
+def _ensure_assessment_tables(cursor):
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assessments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            score INTEGER NOT NULL,
+            classification TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id)
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS assessment_answers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            assessment_id INTEGER NOT NULL,
+            question_id TEXT NOT NULL,
+            answer_text TEXT,
+            is_correct INTEGER NOT NULL,
+            FOREIGN KEY(assessment_id) REFERENCES assessments(id)
+        )
+        """
+    )
+
+
 def initialize_database():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -84,6 +111,7 @@ def initialize_database():
     _migrate_task_logs_text_columns(cursor)
     _migrate_users_email(cursor)
     _ensure_difficulty_history(cursor)
+    _ensure_assessment_tables(cursor)
 
     conn.commit()
     conn.close()
@@ -259,6 +287,83 @@ def session_belongs_to_user(session_id: int, user_id: int) -> bool:
     ok = cursor.fetchone() is not None
     conn.close()
     return ok
+
+
+def create_assessment(user_id: int, score: int, classification: str) -> int:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO assessments (user_id, score, classification)
+        VALUES (?, ?, ?)
+        """,
+        (user_id, score, classification),
+    )
+    assessment_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return assessment_id
+
+
+def log_assessment_answer(
+    assessment_id: int, question_id: str, answer_text: str, is_correct: bool
+) -> None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO assessment_answers (assessment_id, question_id, answer_text, is_correct)
+        VALUES (?, ?, ?, ?)
+        """,
+        (assessment_id, question_id, answer_text, 1 if is_correct else 0),
+    )
+    conn.commit()
+    conn.close()
+
+
+def fetch_latest_assessment(user_id: int) -> dict | None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, score, classification, timestamp
+        FROM assessments
+        WHERE user_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    assessment_id, score, classification, timestamp = row
+    cursor.execute(
+        """
+        SELECT question_id, answer_text, is_correct
+        FROM assessment_answers
+        WHERE assessment_id = ?
+        ORDER BY id ASC
+        """,
+        (assessment_id,),
+    )
+    answers = cursor.fetchall()
+    conn.close()
+    return {
+        "assessment_id": assessment_id,
+        "score": score,
+        "classification": classification,
+        "timestamp": timestamp,
+        "answers": [
+            {
+                "question_id": a[0],
+                "answer_text": a[1] or "",
+                "is_correct": bool(a[2]),
+            }
+            for a in answers
+        ],
+    }
 
 
 if __name__ == "__main__":

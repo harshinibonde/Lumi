@@ -19,6 +19,7 @@ This project explores how a voice-based Large Language Model (LLM) integrated wi
 
 ## 🚀 Core Features
 
+- 📝 LumiAI Cognitive Screening (MMSE/MoCA-inspired 30-point pre-check)
 - 🎤 Voice-first interaction (Speech-to-Text + Text-to-Speech)
 - 🧠 Structured caregiver-fed personal memory graph
 - 🔍 Retrieval-only personal memory recall (hallucination-safe)
@@ -234,9 +235,12 @@ http://127.0.0.1:8000/docs
 cognitive-ai-system/
 │
 ├── app/
-│   └── main.py
+│   ├── main.py
+│   └── assessment_data.py
 ├── database/
 │   └── db.py
+├── frontend/
+│   └── lumi-screening/
 ├── llm/
 │   └── ollama_client.py
 ├── rag/
@@ -244,6 +248,45 @@ cognitive-ai-system/
 ├── chroma_storage/
 ├── cognitive_system.db
 └── README.md
+```
+
+---
+
+## 🧪 Cognitive Screening API
+
+- `GET /assessment/questions`  
+  Returns the 18-question MMSE/MoCA-inspired quiz (30 points total).
+- `POST /assessment/submit`  
+  Accepts answers, computes score/classification, stores assessment + answer review.
+- `GET /assessment/latest/{user_id}`  
+  Returns most recent stored assessment result for a user.
+
+Classification bands:
+
+- `25–30`: normal
+- `21–24`: mild_impairment
+- `10–20`: moderate_impairment
+- `<10`: severe_impairment
+
+---
+
+## 🖥 Screening Frontend (Next.js)
+
+Location: `frontend/lumi-screening`
+
+Run:
+
+```bash
+cd frontend/lumi-screening
+npm install
+npm run dev
+```
+
+Set API base (optional):
+
+```bash
+set NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000
+set NEXT_PUBLIC_SUPPORT_URL=http://127.0.0.1:8501
 ```
 
 ---

@@ -12,6 +12,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 from starlette.requests import Request
@@ -19,13 +20,16 @@ from starlette.requests import Request
 from cognitive.insights import build_behavioral_insights, sessions_per_day_from_logs
 from cognitive.scoring import blended_turn_accuracy
 from database.db import (
+    create_assessment,
     create_session,
+    fetch_latest_assessment,
     fetch_difficulty_history,
     fetch_sessions_per_day,
     fetch_user_task_history,
     get_connection,
     get_user,
     initialize_database,
+    log_assessment_answer,
     log_difficulty_change,
     log_task,
     session_belongs_to_user,
@@ -37,6 +41,12 @@ from llm.ollama_client import (
     generate_response,
 )
 from rag.vector_store import add_memory, retrieve_memory
+from app.assessment_data import (
+    ASSESSMENT_QUESTIONS,
+    classify_score,
+    score_answer,
+    to_question_payload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -183,6 +193,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(OllamaGenerationError)
@@ -225,6 +242,16 @@ class TtsRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=8000)
 
 
+class AssessmentAnswerInput(BaseModel):
+    question_id: str
+    answer: str | list[str] | dict | None = ""
+
+
+class AssessmentSubmitRequest(BaseModel):
+    user_id: int
+    answers: list[AssessmentAnswerInput]
+
+
 @app.get("/health")
 def health():
     try:
@@ -248,6 +275,14 @@ def root():
     return {"message": "Cognitive AI System Running"}
 
 
+@app.get("/meta")
+def app_meta():
+    return {
+        "name": "LumiAI",
+        "slogan": "Lighting the path to clearer memories.",
+    }
+
+
 @app.get("/users")
 def list_users():
     conn = get_connection()
@@ -266,6 +301,77 @@ def list_users():
             for u in users
         ]
     }
+
+
+@app.get("/assessment/questions")
+def get_assessment_questions(include_answer: bool = False):
+    return {
+        "name": "LumiAI Cognitive Screening",
+        "total_questions": len(ASSESSMENT_QUESTIONS),
+        "total_points": 30,
+        "questions": [
+            to_question_payload(q, include_answer=include_answer)
+            for q in ASSESSMENT_QUESTIONS
+        ],
+    }
+
+
+@app.post("/assessment/submit")
+def submit_assessment(body: AssessmentSubmitRequest):
+    if not get_user(body.user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    answer_map = {item.question_id: item.answer for item in body.answers}
+    score = 0
+    detailed_results = []
+
+    for question in ASSESSMENT_QUESTIONS:
+        answer = answer_map.get(question.id, "")
+        is_correct, user_answer_text = score_answer(question, answer)
+        if is_correct:
+            score += question.weight
+        detailed_results.append(
+            {
+                "question_id": question.id,
+                "question": question.question,
+                "category": question.category,
+                "weight": question.weight,
+                "user_answer": user_answer_text,
+                "correct_answer": question.expected_answer
+                if question.expected_answer is not None
+                else "Open response",
+                "is_correct": is_correct,
+            }
+        )
+
+    classification = classify_score(score)
+    assessment_id = create_assessment(body.user_id, score, classification)
+    for row in detailed_results:
+        log_assessment_answer(
+            assessment_id,
+            row["question_id"],
+            row["user_answer"],
+            row["is_correct"],
+        )
+
+    return {
+        "assessment_id": assessment_id,
+        "score": score,
+        "max_score": 30,
+        "classification": classification,
+        "redirect_to_support": classification != "normal",
+        "results": detailed_results,
+    }
+
+
+@app.get("/assessment/latest/{user_id}")
+def latest_assessment(user_id: int):
+    if not get_user(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+    latest = fetch_latest_assessment(user_id)
+    if not latest:
+        return {"assessment": None}
+    return {"assessment": latest}
 
 
 @app.get("/users/{user_id}")
