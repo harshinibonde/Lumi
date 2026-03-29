@@ -35,6 +35,7 @@ from database.db import (
     session_belongs_to_user,
 )
 from notifications.email_reminder import send_cognitive_reminder, smtp_configured
+from notifications.email_reminder import send_caregiver_alert
 from llm.ollama_client import (
     OllamaGenerationError,
     check_ollama_reachable,
@@ -47,6 +48,12 @@ from app.assessment_data import (
     score_answer,
     to_question_payload,
 )
+from app.screening_pipeline import (
+    run_screening_pipeline,
+    serialize_pipeline_details,
+)
+from app.audio_features import extract_audio_features
+from app.decision_engine import decide_next_step
 
 logger = logging.getLogger(__name__)
 
@@ -245,11 +252,19 @@ class TtsRequest(BaseModel):
 class AssessmentAnswerInput(BaseModel):
     question_id: str
     answer: str | list[str] | dict | None = ""
+    input_mode: str = Field(default="text", max_length=16)
+    audio_features: list[float] | None = None
+    audio_summary: dict | None = None
 
 
 class AssessmentSubmitRequest(BaseModel):
     user_id: int
     answers: list[AssessmentAnswerInput]
+
+
+class AudioFeatureResponse(BaseModel):
+    transcript: str
+    features: dict
 
 
 @app.get("/health")
@@ -322,6 +337,13 @@ def submit_assessment(body: AssessmentSubmitRequest):
         raise HTTPException(status_code=404, detail="User not found")
 
     answer_map = {item.question_id: item.answer for item in body.answers}
+    input_mode_map = {item.question_id: item.input_mode for item in body.answers}
+    audio_feature_map = {}
+    for item in body.answers:
+        if item.audio_summary:
+            audio_feature_map[item.question_id] = item.audio_summary
+        elif item.audio_features:
+            audio_feature_map[item.question_id] = item.audio_features
     score = 0
     detailed_results = []
 
@@ -344,8 +366,48 @@ def submit_assessment(body: AssessmentSubmitRequest):
             }
         )
 
-    classification = classify_score(score)
-    assessment_id = create_assessment(body.user_id, score, classification)
+    score_classification = classify_score(score)
+    pipeline_result = run_screening_pipeline(
+        score=score,
+        score_classification=score_classification,
+        detailed_results=detailed_results,
+        input_modes=input_mode_map,
+        audio_features=audio_feature_map,
+    )
+    final_classification = pipeline_result.final_classification
+    decision = decide_next_step(final_classification)
+    user = get_user(body.user_id)
+    alert_sent = False
+    if decision.should_alert_caregiver and user and user.get("email") and smtp_configured():
+        send_caregiver_alert(
+            to_email=user["email"],
+            user_name=user["name"],
+            classification=final_classification,
+            score=score,
+            decision_action=decision.action,
+        )
+        alert_sent = True
+
+    assessment_id = create_assessment(
+        body.user_id,
+        score,
+        final_classification,
+        score_classification=score_classification,
+        ml_classification="",
+        final_classification=final_classification,
+        svm_classification=pipeline_result.svm_classification,
+        random_forest_classification=pipeline_result.random_forest_classification,
+        mlp_classification=pipeline_result.mlp_classification,
+        decision_action=decision.action,
+        caregiver_alert_sent=alert_sent,
+        model_confidence=max(
+            pipeline_result.svm_confidence,
+            pipeline_result.random_forest_confidence,
+            pipeline_result.mlp_confidence,
+        ),
+        model_breakdown=serialize_pipeline_details(pipeline_result),
+        pipeline_version=pipeline_result.pipeline_version,
+    )
     for row in detailed_results:
         log_assessment_answer(
             assessment_id,
@@ -358,10 +420,54 @@ def submit_assessment(body: AssessmentSubmitRequest):
         "assessment_id": assessment_id,
         "score": score,
         "max_score": 30,
-        "classification": classification,
-        "redirect_to_support": classification != "normal",
+        "classification": final_classification,
+        "score_classification": score_classification,
+        "svm_classification": pipeline_result.svm_classification,
+        "random_forest_classification": pipeline_result.random_forest_classification,
+        "mlp_classification": pipeline_result.mlp_classification,
+        "svm_confidence": round(pipeline_result.svm_confidence, 4),
+        "random_forest_confidence": round(
+            pipeline_result.random_forest_confidence, 4
+        ),
+        "mlp_confidence": round(pipeline_result.mlp_confidence, 4),
+        "model_probabilities": pipeline_result.model_probabilities,
+        "pipeline_version": pipeline_result.pipeline_version,
+        "decision": decision.to_dict(),
+        "caregiver_alert_sent": alert_sent,
+        "voice_answer_count": sum(
+            1 for mode in input_mode_map.values() if str(mode).lower() == "speech"
+        ),
+        "redirect_to_support": decision.should_redirect_to_support,
         "results": detailed_results,
     }
+
+
+@app.post("/assessment/audio/analyze", response_model=AudioFeatureResponse)
+async def analyze_assessment_audio(
+    audio: UploadFile = File(...),
+    language: str | None = None,
+):
+    from voice.stt import transcribe_file
+
+    suffix = Path(audio.filename or "clip.wav").suffix or ".wav"
+    if suffix.lower() not in (".wav", ".mp3", ".m4a", ".webm", ".ogg", ".flac"):
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported audio type; try wav, mp3, m4a, webm, ogg, flac",
+        )
+    fd, path_str = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    path = Path(path_str)
+    try:
+        path.write_bytes(await audio.read())
+        try:
+            transcript = transcribe_file(str(path), language=language)
+        except RuntimeError:
+            transcript = ""
+        features = extract_audio_features(str(path), transcript=transcript)
+        return AudioFeatureResponse(transcript=transcript, features=features)
+    finally:
+        path.unlink(missing_ok=True)
 
 
 @app.get("/assessment/latest/{user_id}")

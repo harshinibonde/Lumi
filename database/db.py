@@ -53,6 +53,17 @@ def _ensure_assessment_tables(cursor):
             user_id INTEGER NOT NULL,
             score INTEGER NOT NULL,
             classification TEXT NOT NULL,
+            score_classification TEXT,
+            ml_classification TEXT,
+            final_classification TEXT,
+            svm_classification TEXT,
+            random_forest_classification TEXT,
+            mlp_classification TEXT,
+            decision_action TEXT,
+            caregiver_alert_sent INTEGER DEFAULT 0,
+            model_confidence REAL,
+            model_breakdown TEXT,
+            pipeline_version TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(user_id) REFERENCES users(id)
         )
@@ -70,6 +81,31 @@ def _ensure_assessment_tables(cursor):
         )
         """
     )
+
+    cursor.execute("PRAGMA table_info(assessments)")
+    cols = {row[1] for row in cursor.fetchall()}
+    if "score_classification" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN score_classification TEXT")
+    if "ml_classification" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN ml_classification TEXT")
+    if "final_classification" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN final_classification TEXT")
+    if "svm_classification" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN svm_classification TEXT")
+    if "random_forest_classification" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN random_forest_classification TEXT")
+    if "mlp_classification" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN mlp_classification TEXT")
+    if "decision_action" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN decision_action TEXT")
+    if "caregiver_alert_sent" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN caregiver_alert_sent INTEGER DEFAULT 0")
+    if "model_confidence" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN model_confidence REAL")
+    if "model_breakdown" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN model_breakdown TEXT")
+    if "pipeline_version" not in cols:
+        cursor.execute("ALTER TABLE assessments ADD COLUMN pipeline_version TEXT")
 
 
 def initialize_database():
@@ -289,15 +325,52 @@ def session_belongs_to_user(session_id: int, user_id: int) -> bool:
     return ok
 
 
-def create_assessment(user_id: int, score: int, classification: str) -> int:
+def create_assessment(
+    user_id: int,
+    score: int,
+    classification: str,
+    *,
+    score_classification: str | None = None,
+    ml_classification: str | None = None,
+    final_classification: str | None = None,
+    svm_classification: str | None = None,
+    random_forest_classification: str | None = None,
+    mlp_classification: str | None = None,
+    decision_action: str | None = None,
+    caregiver_alert_sent: bool = False,
+    model_confidence: float | None = None,
+    model_breakdown: str | None = None,
+    pipeline_version: str | None = None,
+) -> int:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO assessments (user_id, score, classification)
-        VALUES (?, ?, ?)
+        INSERT INTO assessments (
+            user_id, score, classification,
+            score_classification, ml_classification, final_classification,
+            svm_classification, random_forest_classification, mlp_classification,
+            decision_action, caregiver_alert_sent,
+            model_confidence, model_breakdown, pipeline_version
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (user_id, score, classification),
+        (
+            user_id,
+            score,
+            classification,
+            score_classification,
+            ml_classification,
+            final_classification,
+            svm_classification,
+            random_forest_classification,
+            mlp_classification,
+            decision_action,
+            1 if caregiver_alert_sent else 0,
+            model_confidence,
+            model_breakdown,
+            pipeline_version,
+        ),
     )
     assessment_id = cursor.lastrowid
     conn.commit()
@@ -326,7 +399,22 @@ def fetch_latest_assessment(user_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT id, score, classification, timestamp
+        SELECT
+            id,
+            score,
+            classification,
+            score_classification,
+            ml_classification,
+            final_classification,
+            svm_classification,
+            random_forest_classification,
+            mlp_classification,
+            decision_action,
+            caregiver_alert_sent,
+            model_confidence,
+            model_breakdown,
+            pipeline_version,
+            timestamp
         FROM assessments
         WHERE user_id = ?
         ORDER BY id DESC
@@ -338,7 +426,23 @@ def fetch_latest_assessment(user_id: int) -> dict | None:
     if not row:
         conn.close()
         return None
-    assessment_id, score, classification, timestamp = row
+    (
+        assessment_id,
+        score,
+        classification,
+        score_classification,
+        ml_classification,
+        final_classification,
+        svm_classification,
+        random_forest_classification,
+        mlp_classification,
+        decision_action,
+        caregiver_alert_sent,
+        model_confidence,
+        model_breakdown,
+        pipeline_version,
+        timestamp,
+    ) = row
     cursor.execute(
         """
         SELECT question_id, answer_text, is_correct
@@ -353,7 +457,18 @@ def fetch_latest_assessment(user_id: int) -> dict | None:
     return {
         "assessment_id": assessment_id,
         "score": score,
-        "classification": classification,
+        "classification": final_classification or classification,
+        "score_classification": score_classification or classification,
+        "ml_classification": ml_classification or classification,
+        "final_classification": final_classification or classification,
+        "svm_classification": svm_classification or "",
+        "random_forest_classification": random_forest_classification or "",
+        "mlp_classification": mlp_classification or "",
+        "decision_action": decision_action or "",
+        "caregiver_alert_sent": bool(caregiver_alert_sent),
+        "model_confidence": model_confidence,
+        "model_breakdown": model_breakdown or "",
+        "pipeline_version": pipeline_version or "v1-score-only",
         "timestamp": timestamp,
         "answers": [
             {
