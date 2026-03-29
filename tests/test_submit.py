@@ -30,9 +30,9 @@ print("\nStatus code:", resp.status_code)
 if resp.status_code == 200:
     data = resp.json()
     print("Score:",         data.get("score"))
-    print("Base band:",     data.get("base_band"))
-    print("Model outputs:", data.get("model_outputs"))
-    print("Final label:",   data.get("final_label"))
+    print("Base band:",     data.get("score_classification"))
+    print("Model outputs:", data.get("model_probabilities"))
+    print("Final label:",   data.get("classification"))
     print("Decision:",      data.get("decision"))
 else:
     print("ERROR:", resp.text)
