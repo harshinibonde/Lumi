@@ -32,6 +32,69 @@ def _migrate_users_email(cursor):
         cursor.execute("ALTER TABLE users ADD COLUMN email TEXT")
 
 
+def _migrate_users_auth_profile_columns(cursor):
+    # Keep this as explicit try/except ALTER statements for safe repeated startup migration.
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN patient_email TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN caregiver_name TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN caregiver_email TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN gender TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN education_years INTEGER")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN handedness TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN native_language TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN lives_alone INTEGER DEFAULT 0")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN otp_code TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN otp_expires_at TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0")
+    except Exception:
+        pass
+
+
+def _ensure_user_sessions(cursor):
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            session_token TEXT NOT NULL UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+        """
+    )
+
+
 def _ensure_difficulty_history(cursor):
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS difficulty_history (
@@ -146,6 +209,8 @@ def initialize_database():
 
     _migrate_task_logs_text_columns(cursor)
     _migrate_users_email(cursor)
+    _migrate_users_auth_profile_columns(cursor)
+    _ensure_user_sessions(cursor)
     _ensure_difficulty_history(cursor)
     _ensure_assessment_tables(cursor)
 
@@ -261,7 +326,22 @@ def get_user(user_id: int) -> dict | None:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT id, name, age, caregiver_notes, difficulty_level, email
+        SELECT
+            id,
+            name,
+            age,
+            caregiver_notes,
+            difficulty_level,
+            email,
+            patient_email,
+            caregiver_name,
+            caregiver_email,
+            gender,
+            education_years,
+            handedness,
+            native_language,
+            lives_alone,
+            is_verified
         FROM users WHERE id = ?
         """,
         (user_id,),
@@ -277,6 +357,15 @@ def get_user(user_id: int) -> dict | None:
         "caregiver_notes": row[3] or "",
         "difficulty_level": row[4],
         "email": row[5] or "",
+        "patient_email": row[6] or "",
+        "caregiver_name": row[7] or "",
+        "caregiver_email": row[8] or "",
+        "gender": row[9] or "",
+        "education_years": int(row[10]) if row[10] is not None else None,
+        "handedness": row[11] or "",
+        "native_language": row[12] or "",
+        "lives_alone": bool(row[13]) if row[13] is not None else False,
+        "is_verified": bool(row[14]) if row[14] is not None else False,
     }
 
 

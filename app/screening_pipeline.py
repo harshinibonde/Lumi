@@ -583,6 +583,9 @@ def run_screening_pipeline(
     detailed_results: list[dict[str, Any]],
     input_modes: dict[str, str] | None = None,
     audio_features: dict[str, Any] | None = None,
+    age: int = 0,
+    gender: str = "M",
+    education_years: int = 10,
 ) -> ScreeningPipelineResult:
     feature_dict = extract_feature_dict(
         score=score,
@@ -590,6 +593,10 @@ def run_screening_pipeline(
         input_modes=input_modes,
         audio_features=audio_features,
     )
+    # Backfill DS1 expected columns when dual-dataset clinical models are present.
+    feature_dict["Age"] = float(max(0, age or 0))
+    feature_dict["M/F"] = 1.0 if str(gender or "M").strip().upper() == "M" else 0.0
+    feature_dict["EDUC"] = float(max(0, education_years or 0))
     dual_bundle = _load_dual_model_bundle()
     if not dual_bundle:
         return _run_legacy_pipeline(

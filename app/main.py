@@ -4,7 +4,9 @@ import tempfile
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -36,6 +38,7 @@ from database.db import (
 )
 from notifications.email_reminder import send_cognitive_reminder, smtp_configured
 from notifications.email_reminder import send_caregiver_alert
+from notifications.email_reminder import send_otp_email
 from llm.ollama_client import (
     OllamaGenerationError,
     check_ollama_reachable,
@@ -54,8 +57,53 @@ from app.screening_pipeline import (
 )
 from app.audio_features import extract_audio_features
 from app.decision_engine import decide_next_step
+from app.otp_utils import generate_otp, generate_session_token, is_otp_valid
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_datetime(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    text = str(raw).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _get_session_record(session_token: str) -> dict | None:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT us.user_id, us.session_token, us.expires_at, u.name
+        FROM user_sessions us
+        JOIN users u ON u.id = us.user_id
+        WHERE us.session_token = ?
+        LIMIT 1
+        """,
+        (session_token,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    expires_at = _parse_datetime(row[2])
+    return {
+        "user_id": int(row[0]),
+        "session_token": row[1],
+        "expires_at": expires_at,
+        "name": row[3],
+    }
 
 
 def update_difficulty(user_id: int) -> None:
@@ -234,11 +282,19 @@ class ChatRequest(BaseModel):
     )
 
 
-class CreateUserRequest(BaseModel):
+class SignupRequest(BaseModel):
     name: str
     age: int
-    caregiver_notes: str = ""
-    email: str = Field(default="", max_length=200)
+    patient_email: Optional[str] = Field(default=None, max_length=200)
+    gender: Optional[str] = Field(default=None, max_length=1)
+    education_years: Optional[int] = None
+    handedness: Optional[str] = Field(default=None, max_length=8)
+    native_language: Optional[str] = Field(default=None, max_length=60)
+    lives_alone: Optional[bool] = None
+    caregiver_name: Optional[str] = Field(default=None, max_length=200)
+    caregiver_email: Optional[str] = Field(default=None, max_length=200)
+    caregiver_notes: Optional[str] = ""
+    email: Optional[str] = Field(default="", max_length=200)
 
 
 class StartSessionRequest(BaseModel):
@@ -260,6 +316,26 @@ class AssessmentAnswerInput(BaseModel):
 class AssessmentSubmitRequest(BaseModel):
     user_id: int
     answers: list[AssessmentAnswerInput]
+    session_token: str | None = None
+
+
+class OTPRequest(BaseModel):
+    patient_email: str
+
+
+class OTPVerify(BaseModel):
+    user_id: int
+    otp: str
+
+
+class LogoutRequest(BaseModel):
+    session_token: str
+
+
+class CaregiverNotesRequest(BaseModel):
+    caregiver_notes: str
+    memories: list[str]
+    session_token: str
 
 
 class AudioFeatureResponse(BaseModel):
@@ -333,8 +409,20 @@ def get_assessment_questions(include_answer: bool = False):
 
 @app.post("/assessment/submit")
 def submit_assessment(body: AssessmentSubmitRequest):
-    if not get_user(body.user_id):
+    user = get_user(body.user_id)
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    if not body.session_token:
+        logger.warning("assessment/submit called without session_token for user_id=%s", body.user_id)
+    else:
+        session = _get_session_record(body.session_token)
+        expired = not session or not session.get("expires_at") or session["expires_at"] <= datetime.utcnow()
+        wrong_user = bool(session and session.get("user_id") != body.user_id)
+        if expired or wrong_user:
+            logger.warning(
+                "assessment/submit received invalid session_token for user_id=%s (prototype mode: continuing)",
+                body.user_id,
+            )
 
     answer_map = {item.question_id: item.answer for item in body.answers}
     input_mode_map = {item.question_id: item.input_mode for item in body.answers}
@@ -373,14 +461,17 @@ def submit_assessment(body: AssessmentSubmitRequest):
         detailed_results=detailed_results,
         input_modes=input_mode_map,
         audio_features=audio_feature_map,
+        age=int(user.get("age") or 0),
+        gender=str(user.get("gender") or "M"),
+        education_years=int(user.get("education_years") or 10),
     )
     final_classification = pipeline_result.final_classification
     decision = decide_next_step(final_classification)
-    user = get_user(body.user_id)
     alert_sent = False
-    if decision.should_alert_caregiver and user and user.get("email") and smtp_configured():
+    caregiver_target = (user.get("caregiver_email") or user.get("patient_email") or user.get("email") or "").strip()
+    if decision.should_alert_caregiver and user and caregiver_target and smtp_configured():
         send_caregiver_alert(
-            to_email=user["email"],
+            to_email=caregiver_target,
             user_name=user["name"],
             classification=final_classification,
             score=score,
@@ -431,6 +522,7 @@ def submit_assessment(body: AssessmentSubmitRequest):
         ),
         "mlp_confidence": round(pipeline_result.mlp_confidence, 4),
         "model_probabilities": pipeline_result.model_probabilities,
+        "model_outputs": pipeline_result.model_probabilities,
         "pipeline_version": pipeline_result.pipeline_version,
         "decision": decision.to_dict(),
         "caregiver_alert_sent": alert_sent,
@@ -665,21 +757,259 @@ Respond helpfully: acknowledge them, answer or guide the activity, and when appr
 
 
 @app.post("/users")
-def create_user(request: CreateUserRequest):
+def create_user(request: SignupRequest):
+    def _error(msg: str):
+        return JSONResponse(status_code=400, content={"error": msg})
+
+    name = (request.name or "").strip()
+    if not name:
+        return _error("Name is required")
+    if request.age < 50 or request.age > 100:
+        return _error("Age must be between 50 and 100")
+
+    legacy_mode = (
+        not request.patient_email
+        and bool((request.email or "").strip())
+        and request.gender is None
+        and request.education_years is None
+        and request.handedness is None
+        and request.native_language is None
+        and request.lives_alone is None
+        and request.caregiver_name is None
+        and request.caregiver_email is None
+    )
+
+    patient_email = (request.patient_email or request.email or "").strip()
+    if "@" not in patient_email:
+        return _error("patient_email must contain '@'")
+
+    if legacy_mode:
+        gender = "M"
+        education_years = 10
+        handedness = "Right"
+        native_language = "English"
+        lives_alone = False
+        caregiver_name = f"{name} Caregiver"
+        caregiver_email = f"caregiver_{abs(hash(patient_email)) % 1000000}@example.com"
+        caregiver_notes = (request.caregiver_notes or "").strip()
+    else:
+        gender = (request.gender or "").strip().upper()
+        if gender not in ("M", "F"):
+            return _error("Gender must be 'M' or 'F'")
+
+        if request.education_years is None or request.education_years < 0 or request.education_years > 25:
+            return _error("education_years must be between 0 and 25")
+        education_years = int(request.education_years)
+
+        handedness = (request.handedness or "").strip()
+        if handedness not in ("Right", "Left"):
+            return _error("handedness must be 'Right' or 'Left'")
+
+        native_language = (request.native_language or "").strip()
+        if not native_language:
+            return _error("native_language is required")
+
+        caregiver_name = (request.caregiver_name or "").strip()
+        if not caregiver_name:
+            return _error("caregiver_name is required")
+
+        caregiver_email = (request.caregiver_email or "").strip()
+        if "@" not in caregiver_email:
+            return _error("caregiver_email must contain '@'")
+        caregiver_notes = (request.caregiver_notes or "").strip()
+        lives_alone = bool(request.lives_alone)
+
+    if patient_email.lower() == caregiver_email.lower():
+        return _error("patient_email and caregiver_email must be different")
+
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO users (name, age, caregiver_notes, email)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO users (
+            name, age, caregiver_notes, difficulty_level, email,
+            patient_email, caregiver_name, caregiver_email,
+            gender, education_years, handedness, native_language,
+            lives_alone, otp_code, otp_expires_at, is_verified
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (request.name, request.age, request.caregiver_notes, request.email.strip() or None),
+        (
+            name,
+            int(request.age),
+            caregiver_notes,
+            3,
+            (request.email or patient_email).strip() or patient_email,
+            patient_email,
+            caregiver_name,
+            caregiver_email,
+            gender,
+            education_years,
+            handedness,
+            native_language,
+            1 if lives_alone else 0,
+            None,
+            None,
+            0,
+        ),
     )
     user_id = cursor.lastrowid
+    otp_code = generate_otp()
+    otp_expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+    cursor.execute(
+        "UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?",
+        (otp_code, otp_expires_at, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+    send_otp_email(patient_email, otp_code, name)
+    return {
+        "user_id": user_id,
+        "name": name,
+        "message": "Account created. OTP sent to patient_email.",
+    }
+
+
+@app.post("/auth/request-otp")
+def auth_request_otp(body: OTPRequest):
+    patient_email = (body.patient_email or "").strip()
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, name, COALESCE(patient_email, email)
+        FROM users
+        WHERE LOWER(COALESCE(patient_email, email)) = LOWER(?)
+        LIMIT 1
+        """,
+        (patient_email,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": "No account found with this email"})
+
+    otp_code = generate_otp()
+    otp_expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+    cursor.execute(
+        "UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?",
+        (otp_code, otp_expires_at, int(row[0])),
+    )
+    conn.commit()
+    conn.close()
+
+    send_otp_email(str(row[2] or patient_email), otp_code, str(row[1] or "User"))
+    return {"message": "OTP sent to email", "user_id": int(row[0])}
+
+
+@app.post("/auth/verify-otp")
+def auth_verify_otp(body: OTPVerify):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT id, name, otp_code, otp_expires_at FROM users WHERE id = ? LIMIT 1",
+        (body.user_id,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return JSONResponse(status_code=404, content={"error": "User not found"})
+
+    otp_code = row[2]
+    otp_expires_at = row[3]
+    valid = False
+    try:
+        if otp_code and otp_expires_at:
+            valid = is_otp_valid(str(otp_code), str(otp_expires_at), str(body.otp))
+    except Exception:
+        valid = False
+    if not valid:
+        conn.close()
+        return JSONResponse(status_code=400, content={"error": "Invalid or expired OTP"})
+
+    session_token = generate_session_token()
+    expires_at = (datetime.utcnow() + timedelta(days=7)).isoformat()
+    cursor.execute(
+        "UPDATE users SET is_verified = 1, otp_code = NULL, otp_expires_at = NULL WHERE id = ?",
+        (body.user_id,),
+    )
+    cursor.execute(
+        """
+        INSERT INTO user_sessions (user_id, session_token, expires_at)
+        VALUES (?, ?, ?)
+        """,
+        (body.user_id, session_token, expires_at),
+    )
     conn.commit()
     conn.close()
     return {
-        "message": "User created successfully",
-        "user_id": user_id,
-        "difficulty_level": 1,
+        "user_id": int(body.user_id),
+        "session_token": session_token,
+        "name": str(row[1] or ""),
+        "message": "Login successful",
+    }
+
+
+@app.post("/auth/logout")
+def auth_logout(body: LogoutRequest):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM user_sessions WHERE session_token = ?", (body.session_token,))
+    conn.commit()
+    conn.close()
+    return {"message": "Logged out successfully"}
+
+
+@app.get("/auth/validate-session")
+def auth_validate_session(session_token: str):
+    session = _get_session_record(session_token)
+    if not session:
+        return JSONResponse(status_code=401, content={"error": "Invalid session"})
+    expires_at = session.get("expires_at")
+    if not expires_at or expires_at <= datetime.utcnow():
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM user_sessions WHERE session_token = ?", (session_token,))
+        conn.commit()
+        conn.close()
+        return JSONResponse(status_code=401, content={"error": "Session expired"})
+    return {
+        "user_id": int(session["user_id"]),
+        "name": str(session.get("name") or ""),
+        "valid": True,
+    }
+
+
+@app.post("/users/{user_id}/caregiver-notes")
+def save_caregiver_notes(user_id: int, body: CaregiverNotesRequest):
+    session = _get_session_record(body.session_token)
+    if not session or not session.get("expires_at") or session["expires_at"] <= datetime.utcnow():
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    if int(session["user_id"]) != int(user_id):
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    if not get_user(user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET caregiver_notes = ? WHERE id = ?",
+        ((body.caregiver_notes or "").strip(), user_id),
+    )
+    conn.commit()
+    conn.close()
+
+    stored = 0
+    for memory in body.memories or []:
+        text = str(memory or "").strip()
+        if not text:
+            continue
+        add_memory(text=text, memory_id=str(uuid.uuid4()), user_id=user_id)
+        stored += 1
+
+    return {
+        "user_id": int(user_id),
+        "memories_stored": stored,
+        "message": "Notes and memories saved",
     }

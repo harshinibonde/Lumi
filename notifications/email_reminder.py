@@ -94,3 +94,43 @@ def send_caregiver_alert(
         logger.info("Caregiver alert email sent to %s", to_email)
     except Exception:
         logger.exception("Failed to send caregiver alert email to %s", to_email)
+
+
+def send_otp_email(to_email: str, otp_code: str, name: str):
+    subject = "Your Cognitive Companion login code"
+    body = (
+        f"Hi {name},\n\n"
+        f"Your one-time login code is: {otp_code}\n\n"
+        "This code expires in 10 minutes.\n"
+        "Do not share this code with anyone.\n\n"
+        "- Cognitive Companion\n"
+    )
+
+    if not smtp_configured():
+        logger.warning("SMTP not configured; falling back to console OTP output.")
+        print(f"[DEV MODE] OTP for {name} ({to_email}): {otp_code}")
+        return
+
+    host = os.getenv("SMTP_HOST", "")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    user = os.getenv("SMTP_USER", "")
+    password = os.getenv("SMTP_PASSWORD", "")
+    from_addr = os.getenv("SMTP_FROM", "")
+
+    msg = MIMEMultipart()
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_email
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    context = ssl.create_default_context()
+    try:
+        with smtplib.SMTP(host, port, timeout=30) as server:
+            server.starttls(context=context)
+            if user and password:
+                server.login(user, password)
+            server.sendmail(from_addr, [to_email], msg.as_string())
+        logger.info("OTP email sent to %s", to_email)
+    except Exception:
+        logger.exception("Failed to send OTP email to %s; using console fallback.", to_email)
+        print(f"[DEV MODE] OTP for {name} ({to_email}): {otp_code}")
