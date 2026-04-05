@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 
@@ -18,9 +19,9 @@ class AssessmentQuestion:
 
 
 ASSESSMENT_QUESTIONS: list[AssessmentQuestion] = [
-    AssessmentQuestion("q1", "What year is it today?", "orientation", 2, "text", expected_answer="2026"),
-    AssessmentQuestion("q2", "What month is it now?", "orientation", 2, "text", expected_answer="march"),
-    AssessmentQuestion("q3", "What day of the week is it?", "orientation", 1, "multiple_choice", options=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], expected_answer="thursday"),
+    AssessmentQuestion("q1", "What year is it today?", "orientation", 2, "text", expected_answer="DYNAMIC_YEAR"),
+    AssessmentQuestion("q2", "What month is it now?", "orientation", 2, "text", expected_answer="DYNAMIC_MONTH"),
+    AssessmentQuestion("q3", "What day of the week is it?", "orientation", 1, "multiple_choice", options=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"], expected_answer="DYNAMIC_DAY"),
     AssessmentQuestion("q4", "What city are you currently in?", "orientation", 1, "text", expected_answer="nagpur"),
     AssessmentQuestion("q5", "What country are you in?", "orientation", 1, "text", expected_answer="india"),
     AssessmentQuestion("q6", "Remember these words: Apple, Table, River.", "registration", 3, "memory_registration", prompt_words=["Apple", "Table", "River"]),
@@ -60,7 +61,14 @@ def to_question_payload(question: AssessmentQuestion, include_answer: bool = Fal
         "prompt_words": question.prompt_words or [],
     }
     if include_answer:
-        payload["expected_answer"] = question.expected_answer
+        ans = question.expected_answer
+        if ans == "DYNAMIC_YEAR":
+            ans = str(datetime.now().year)
+        elif ans == "DYNAMIC_MONTH":
+            ans = datetime.now().strftime("%B").lower()
+        elif ans == "DYNAMIC_DAY":
+            ans = datetime.now().strftime("%A").lower()
+        payload["expected_answer"] = ans
     return payload
 
 
@@ -97,7 +105,16 @@ def score_answer(question: AssessmentQuestion, answer: Any) -> tuple[bool, str]:
         return is_correct, ", ".join(raw_values)
 
     user_answer = _normalize(_as_text(answer))
-    expected_answer = _normalize(str(question.expected_answer))
+    
+    expected_ans = question.expected_answer
+    if expected_ans == "DYNAMIC_YEAR":
+        expected_ans = str(datetime.now().year)
+    elif expected_ans == "DYNAMIC_MONTH":
+        expected_ans = datetime.now().strftime("%B").lower()
+    elif expected_ans == "DYNAMIC_DAY":
+        expected_ans = datetime.now().strftime("%A").lower()
+        
+    expected_answer = _normalize(str(expected_ans))
 
     if question.id == "q8":
         digits = re.findall(r"\d+", user_answer)

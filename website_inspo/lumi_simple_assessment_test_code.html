@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#adcebe",
+                    "surface-tint": "#476558",
+                    "on-tertiary-fixed": "#241a00",
+                    "surface-container-low": "#f9f3e8",
+                    "inverse-primary": "#adcebe",
+                    "on-tertiary": "#ffffff",
+                    "inverse-on-surface": "#f6f0e5",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#584400",
+                    "primary-fixed": "#c9ead9",
+                    "on-primary-fixed-variant": "#304d40",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#424844",
+                    "surface-dim": "#dfd9cf",
+                    "surface": "#fff9ee",
+                    "on-primary-container": "#99b9a9",
+                    "tertiary-fixed": "#ffdf91",
+                    "on-secondary-container": "#744300",
+                    "on-secondary-fixed-variant": "#693c00",
+                    "surface-bright": "#fff9ee",
+                    "secondary-container": "#fdb15e",
+                    "tertiary": "#725c17",
+                    "on-tertiary-container": "#503d00",
+                    "tertiary-container": "#c5a85d",
+                    "primary-container": "#2d4a3e",
+                    "background": "#fff9ee",
+                    "surface-container": "#f3ede2",
+                    "secondary-fixed": "#ffdcbd",
+                    "primary": "#163328",
+                    "secondary": "#8a5100",
+                    "outline": "#727974",
+                    "on-surface": "#1d1c15",
+                    "on-error-container": "#93000a",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#c1c8c3",
+                    "on-primary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#e2c375",
+                    "surface-variant": "#e8e2d7",
+                    "on-primary-fixed": "#022016",
+                    "on-background": "#1d1c15",
+                    "secondary-fixed-dim": "#ffb86d",
+                    "surface-container-high": "#ede8dd",
+                    "error-container": "#ffdad6",
+                    "surface-container-highest": "#e8e2d7",
+                    "on-secondary-fixed": "#2c1600",
+                    "inverse-surface": "#333029"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Newsreader"],
+                    "body": ["Manrope"],
+                    "label": ["Manrope"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .bg-halo {
+            background: radial-gradient(circle, rgba(226, 195, 117, 0.12) 0%, rgba(255, 249, 238, 0) 70%);
+        }
+        .newsreader { font-family: 'Newsreader', serif; }
+        .manrope { font-family: 'Manrope', sans-serif; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface manrope min-h-screen flex flex-col">
+<!-- Top Navigation Bar -->
+<nav class="fixed top-0 w-full z-50 bg-[#FFF9EE]/80 backdrop-blur-md">
+<div class="flex justify-between items-center px-8 py-6 max-w-7xl mx-auto">
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 text-primary/60 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+<span class="manrope font-medium">Back</span>
+</button>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+<span class="text-2xl font-headline font-semibold text-primary">Lumi</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-sm font-label text-primary/40 tracking-widest uppercase">Question 1 of 5</span>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col items-center justify-center px-6 pt-24 pb-12 relative overflow-hidden">
+<!-- Decorative Luminous Halo -->
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-halo pointer-events-none"></div>
+<div class="w-full max-w-2xl z-10 flex flex-col items-center text-center">
+<!-- Cognitive Question -->
+<div class="mb-12">
+<h1 class="text-4xl md:text-5xl lg:text-6xl text-primary font-headline leading-tight mb-8">
+                    What day of the week is it?
+                </h1>
+<button class="inline-flex items-center gap-3 px-6 py-3 bg-surface-container-high rounded-full text-primary hover:bg-primary-fixed-dim transition-all active:scale-95 group">
+<span class="material-symbols-outlined text-secondary">volume_up</span>
+<span class="manrope font-semibold text-sm tracking-wide">Read Out Loud</span>
+</button>
+</div>
+<!-- Input Section -->
+<div class="w-full space-y-12">
+<!-- Text Area Input -->
+<div class="relative group">
+<textarea class="w-full bg-surface-container-high border-none rounded-xl p-8 text-2xl font-headline text-primary placeholder:text-primary/20 focus:ring-0 focus:bg-surface-container-highest transition-colors resize-none text-center" placeholder="Type your answer here..." rows="1"></textarea>
+</div>
+<!-- Voice Input Cluster -->
+<div class="flex flex-col items-center gap-6">
+<div class="relative">
+<!-- Ripple Effect Placeholder -->
+<div class="absolute inset-0 bg-secondary/10 rounded-full scale-125"></div>
+<button class="relative w-24 h-24 bg-secondary-fixed flex items-center justify-center rounded-full text-secondary shadow-lg hover:bg-secondary-container transition-all active:scale-90 group">
+<span class="material-symbols-outlined text-4xl" data-icon="mic" style="font-variation-settings: 'FILL' 1;">mic</span>
+</button>
+</div>
+<div class="space-y-1">
+<p class="text-primary font-semibold text-lg">Voice Input</p>
+<p class="text-primary/60 text-sm italic">Or speak clearly to respond</p>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<div class="mt-20 w-full">
+<button class="w-full md:w-auto min-w-[240px] px-10 py-5 bg-primary text-surface rounded-full text-lg font-semibold shadow-xl hover:bg-primary-container transition-all active:scale-[0.98]">
+                    Next Question
+                </button>
+</div>
+</div>
+</main>
+<!-- Footer Progress Bar (Visual Only) -->
+<footer class="w-full h-1.5 bg-surface-container-low">
+<div class="h-full bg-secondary transition-all duration-700" style="width: 20%;"></div>
+</footer>
+<!-- Decorative Corner Element -->
+<div class="fixed bottom-12 right-12 opacity-10 pointer-events-none">
+<img class="w-32 h-32 object-contain" data-alt="soft botanical line art of a small seedling growing from rich soil in a minimalist hand-drawn editorial style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD21bTSpeXD4cJYmER_UX6vxV9-QhSskISV_-jvkNvSg243K7nqzbu6cnvqBBiKpw92uR1KtTCJSuW6HcbFtZcnuG-269OnbTg5co24yPDxnsQTfxvFN5cgCtBKnjVpweXJpVF_bxlyiBd6vvNpxN1nfwomHLcgU4bCkVclJw3zNBNXEyU5huUNUKCtkEhXxdPBlKr0yOe5RfV_lSB3iveeUO6sZi84jUqprrSKbtFHtxAusRHlGHPszHp2xzaOWV-qIWnKxAPbCzo"/>
+</div>
+</body></html>

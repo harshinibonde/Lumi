@@ -1,0 +1,329 @@
+/* ─── Assessment ─────────────────────────────────────────────────── */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--surface);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.loadingWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  color: var(--on-surface-variant);
+}
+
+.pulse {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--secondary-fixed);
+  animation: glowPulse 2s ease infinite;
+}
+
+/* Top Nav */
+.topNav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-5) var(--space-8);
+  background: rgba(255, 249, 238, 0.8);
+  backdrop-filter: blur(12px);
+}
+
+.topLeft, .topRight { flex: 1; }
+.topCenter { text-align: center; flex: 1; }
+.topRight { text-align: right; }
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--primary);
+  opacity: 0.6;
+  font-weight: 500;
+  transition: opacity var(--duration-mid) var(--ease-out);
+  padding: var(--space-2);
+  min-height: 44px;
+}
+
+.backBtn:hover { opacity: 1; }
+
+.brandMark {
+  font-family: var(--font-headline), 'Newsreader', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.counter {
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary);
+  opacity: 0.4;
+  font-weight: 600;
+}
+
+/* Content */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-8);
+  position: relative;
+  overflow: hidden;
+}
+
+.haloCenter {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(
+    circle,
+    rgba(226, 195, 117, 0.12) 0%,
+    rgba(255, 249, 238, 0) 70%
+  );
+  pointer-events: none;
+}
+
+.questionArea {
+  max-width: 680px;
+  width: 100%;
+  text-align: center;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.category {
+  display: inline-block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-weight: 700;
+  color: var(--secondary);
+  margin-bottom: var(--space-6);
+}
+
+.question {
+  font-family: var(--font-headline), 'Newsreader', serif;
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  font-weight: 400;
+  color: var(--primary);
+  line-height: 1.2;
+  margin-bottom: var(--space-8);
+}
+
+.readAloud {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface-container-high);
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  transition: all var(--duration-mid) var(--ease-out);
+  margin-bottom: var(--space-10);
+}
+
+.readAloud:hover {
+  background: var(--primary-fixed-dim);
+}
+
+.readAloud .material-symbols-outlined {
+  color: var(--secondary);
+}
+
+/* Answer */
+.answerArea {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.textInput {
+  width: 100%;
+  background: var(--surface-container-high);
+  border: none;
+  border-radius: var(--radius-xl);
+  padding: var(--space-6) var(--space-8);
+  font-family: var(--font-headline), 'Newsreader', serif;
+  font-size: 1.5rem;
+  color: var(--primary);
+  text-align: center;
+  resize: none;
+  transition: background var(--duration-mid) var(--ease-out);
+}
+
+.textInput::placeholder {
+  color: var(--primary);
+  opacity: 0.2;
+}
+
+.textInput:focus {
+  background: var(--surface-container-highest);
+  outline: none;
+}
+
+/* Choice Grid */
+.choiceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.choiceBtn {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-container-high);
+  border-radius: var(--radius-xl);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--primary);
+  transition: all var(--duration-mid) var(--ease-out);
+  min-height: 48px;
+}
+
+.choiceBtn:hover {
+  background: var(--surface-container-highest);
+}
+
+.choiceOn {
+  background: var(--primary-container);
+  color: var(--on-primary);
+}
+
+.choiceOn:hover {
+  background: var(--primary);
+}
+
+/* Voice */
+.voiceSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.micRipple {
+  position: relative;
+}
+
+.micRipple::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  background: rgba(138, 81, 0, 0.1);
+}
+
+.micBtn {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--secondary-fixed);
+  display: grid;
+  place-items: center;
+  color: var(--secondary);
+  box-shadow: 0 8px 24px rgba(138, 81, 0, 0.15);
+  transition: all var(--duration-mid) var(--ease-out);
+}
+
+.micBtn:hover {
+  background: var(--secondary-container);
+  transform: scale(1.05);
+}
+
+.micBtn:active {
+  transform: scale(0.95);
+}
+
+.voiceLabel {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.voiceHint {
+  font-size: 0.85rem;
+  color: var(--primary);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Navigation Buttons */
+.navBtns {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: var(--space-16);
+  gap: var(--space-4);
+}
+
+.navBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nextBtn {
+  min-width: 200px;
+  padding: var(--space-4) var(--space-8);
+  font-size: 1rem;
+}
+
+.reassure {
+  margin-top: var(--space-6);
+  color: var(--on-surface-variant);
+  opacity: 0.5;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Progress Footer */
+.progressFooter {
+  width: 100%;
+  height: 6px;
+  background: var(--surface-container-low);
+}
+
+.progressTrack {
+  height: 100%;
+  width: 100%;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--secondary);
+  transition: width 700ms var(--ease-out);
+}
+
+@media (max-width: 768px) {
+  .content { padding: var(--space-4); }
+  .topNav { padding: var(--space-4); }
+  .choiceGrid { grid-template-columns: 1fr; }
+}

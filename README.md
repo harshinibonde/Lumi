@@ -4,7 +4,7 @@ A proactive voice-first cognitive companion system built using **Llama 3 + Retri
 
 ---
 
-##  Project Purpose
+## 🎯 Project Purpose
 
 This project explores how a voice-based Large Language Model (LLM) integrated with structured memory retrieval can:
 
@@ -13,24 +13,24 @@ This project explores how a voice-based Large Language Model (LLM) integrated wi
 - Track cognitive interaction metrics over time  
 - Provide structured longitudinal analytics for caregivers  
 
->  This is a research prototype and NOT a medical device.
+> ⚠️ This is a research prototype and NOT a medical device.
 
 ---
 
-##  Core Features
+## 🚀 Core Features
 
--  LumiAI Cognitive Screening (MMSE/MoCA-inspired 30-point pre-check)
--  Voice-first interaction (Speech-to-Text + Text-to-Speech)
--  Structured caregiver-fed personal memory graph
--  Retrieval-only personal memory recall (hallucination-safe)
--  Multi-domain cognitive interaction tracking
--  Longitudinal trend analytics
--  Proactive scheduled sessions
--  Guardrails to prevent fabricated memories
+- 📝 LumiAI Cognitive Screening (MMSE/MoCA-inspired 30-point pre-check)
+- 🎤 Voice-first interaction (Speech-to-Text + Text-to-Speech)
+- 🧠 Structured caregiver-fed personal memory graph
+- 🔍 Retrieval-only personal memory recall (hallucination-safe)
+- 📊 Multi-domain cognitive interaction tracking
+- 📈 Longitudinal trend analytics
+- ⏰ Proactive scheduled sessions
+- 🔒 Guardrails to prevent fabricated memories
 
 ---
 
-##  System Architecture
+## 🏗 System Architecture
 
 ```
 User Speech
@@ -54,7 +54,7 @@ Text-to-Speech Response
 
 ---
 
-##  Tech Stack
+## 🧩 Tech Stack
 
 | Layer        | Technology |
 |--------------|------------|
@@ -69,7 +69,7 @@ Text-to-Speech Response
 
 ---
 
-##  Database Schema
+## 🗄 Database Schema
 
 ### Users
 
@@ -97,7 +97,7 @@ Text-to-Speech Response
 
 ---
 
-##  Adaptive Difficulty Engine
+## 🔄 Adaptive Difficulty Engine
 
 Rules:
 
@@ -109,9 +109,9 @@ Difficulty level is injected directly into the LLM prompt to dynamically control
 
 ---
 
-##  Setup Instructions
+## ⚙️ Setup Instructions
 
-### 1️ Clone Repository
+### 1️⃣ Clone Repository
 
 ```bash
 git clone https://github.com/harshinibonde/cognitive-ai-system.git
@@ -120,7 +120,7 @@ cd cognitive-ai-system
 
 ---
 
-### 2️ Create Virtual Environment
+### 2️⃣ Create Virtual Environment
 
 ```bash
 python -m venv venv
@@ -140,7 +140,7 @@ source venv/bin/activate
 
 ---
 
-### 3️ Install Dependencies
+### 3️⃣ Install Dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -156,7 +156,7 @@ pip install plotly streamlit faster-whisper pyttsx3
 
 ---
 
-### 4️ Install Ollama
+### 4️⃣ Install Ollama
 
 Download from:  
 https://ollama.com
@@ -175,8 +175,23 @@ ollama run llama3
 
 ---
 
+### 5️⃣ Disable GPU — Force CPU Mode
 
-### 6️ Start Backend
+Create:
+
+```
+C:\Users\ASUS\.ollama\config.yaml
+```
+
+Add:
+
+```yaml
+gpu: false
+```
+
+---
+
+### 6️⃣ Start Backend
 
 ```bash
 uvicorn app.main:app --reload
@@ -190,27 +205,27 @@ http://127.0.0.1:8000/docs
 
 ---
 
-##  Current Status
+## 📊 Current Status
 
 | Component              | Status |
 |------------------------|--------|
-| LLM Integration        | Complete |
-| RAG Memory             | Complete |
-| Multi-user Isolation   | Complete |
-| Adaptive Difficulty    | Complete |
-| Voice Layer (STT/TTS)  | Complete |
-| Audio Feature Analysis | Complete |
-| Authentication (OTP)   | Complete |
-| Session Management     | Complete |
-| Scheduler              | Complete |
-| Analytics Dashboard    | Complete |
-| Email Notifications    | Complete |
-| Decision Engine        | Complete |
-| Behavioral Insights    | Complete |
+| LLM Integration        | ✅ Complete |
+| RAG Memory             | ✅ Complete |
+| Multi-user Isolation   | ✅ Complete |
+| Adaptive Difficulty    | ✅ Complete |
+| Voice Layer (STT/TTS)  | ✅ Complete |
+| Audio Feature Analysis | ✅ Complete |
+| Authentication (OTP)   | ✅ Complete |
+| Session Management     | ✅ Complete |
+| Scheduler              | ✅ Complete |
+| Analytics Dashboard    | ✅ Complete |
+| Email Notifications    | ✅ Complete |
+| Decision Engine        | ✅ Complete |
+| Behavioral Insights    | ✅ Complete |
 
 ---
 
-##  Authentication & Session Management
+## 🔐 Authentication & Session Management
 
 **OTP-Based Access:**
 - Users request OTP via `POST /auth/request-otp` (sent via email)
@@ -225,7 +240,7 @@ http://127.0.0.1:8000/docs
 
 ---
 
-##  Analytics & Insights
+## 📈 Analytics & Insights
 
 **Metrics Tracked:**
 - **Accuracy per turn** — Correctness of cognitive responses
@@ -249,7 +264,7 @@ Extracted from voice recordings:
 
 ---
 
-##  Notifications & Alerts
+## 📬 Notifications & Alerts
 
 **Email System (SMTP-based):**
 - OTP delivery to users
@@ -264,7 +279,7 @@ Extracted from voice recordings:
 
 ---
 
-##  Memory & Context Augmentation
+## 🧠 Memory & Context Augmentation
 
 **Personal Memory Management:**
 - Caregiver-fed context (family events, preferences, medical history)
@@ -279,7 +294,7 @@ Extracted from voice recordings:
 
 ---
 
-##  Decision Engine & Routing
+## 🎯 Decision Engine & Routing
 
 **Post-Assessment Logic:**
 - **Normal** → Exit with clearance message
@@ -289,7 +304,7 @@ Extracted from voice recordings:
 
 ---
 
-##  Longitudinal Data Management
+## 📊 Longitudinal Data Management
 
 **Schema Highlights:**
 - **Users** — Profile, difficulty level, caregiver notes
@@ -301,7 +316,7 @@ Extracted from voice recordings:
 
 ---
 
-##  Privacy & Architecture
+## 🔐 Privacy & Architecture
 
 - Fully offline  
 - No external LLM APIs  
@@ -311,7 +326,7 @@ Extracted from voice recordings:
 
 ---
 
-##  Project Structure
+## 📂 Project Structure
 
 ```
 cognitive-ai-system/
@@ -384,7 +399,7 @@ cognitive-ai-system/
 
 ---
 
-##  API Endpoints
+## 🧪 API Endpoints
 
 ### Health & Meta
 - `GET /` / `GET /health` — Server health check
@@ -426,7 +441,7 @@ Classification bands:
 
 ---
 
-##  Screening Frontend (Next.js)
+## 🖥 Screening Frontend (Next.js)
 
 Location: `frontend/lumi-screening`
 
@@ -447,7 +462,7 @@ set NEXT_PUBLIC_SUPPORT_URL=http://127.0.0.1:8501
 
 ---
 
-##  Streamlit Multi-Page Application
+## 💬 Streamlit Multi-Page Application
 
 The Streamlit interface provides interactive cognitive engagement and analytics:
 
@@ -473,9 +488,9 @@ streamlit run ui/streamlit_api.py
 
 ---
 
-##  Running the Full System
+## � Running the Full System
 
-### 1️ Start Ollama Backend
+### 1️⃣ Start Ollama Backend
 
 ```bash
 ollama serve
@@ -486,7 +501,7 @@ In another terminal:
 ollama run llama3
 ```
 
-### 2️ Start FastAPI Server
+### 2️⃣ Start FastAPI Server
 
 ```bash
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
@@ -497,7 +512,7 @@ Check:
 http://127.0.0.1:8000/docs
 ```
 
-### 3️ Start Streamlit UI
+### 3️⃣ Start Streamlit UI
 
 ```bash
 streamlit run pages/1_Chat.py
@@ -508,7 +523,7 @@ Automatically opens at:
 http://127.0.0.1:8501
 ```
 
-### 4️ (Optional) Run Next.js Screening Frontend
+### 4️⃣ (Optional) Run Next.js Screening Frontend
 
 ```bash
 cd frontend/lumi-screening
@@ -522,7 +537,7 @@ http://127.0.0.1:3000
 
 ---
 
-##  Environment Configuration
+## 📋 Environment Configuration
 
 Create `.env` in project root:
 
@@ -552,7 +567,7 @@ NEXT_PUBLIC_SUPPORT_URL=http://127.0.0.1:8501
 
 ---
 
-##  Testing
+## 🧪 Testing
 
 Run integration tests:
 
@@ -568,5 +583,4 @@ streamlit run demo_app.py
 ```
 
 ---
-
 

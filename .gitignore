@@ -19,3 +19,8 @@ backups/
 
 # Ollama config
 .ollama/
+
+# React & Next.js
+frontend/lumi-screening/node_modules/
+frontend/lumi-screening/.next/
+.venv/
