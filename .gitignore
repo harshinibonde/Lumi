@@ -1,0 +1,15 @@
+*.db
+models/*.pkl
+backend/models/*.pkl
+chroma_db/
+backend/chroma_db/
+backend/dementia_app.db
+.env
+.env.local
+venv/
+__pycache__/
+*.pyc
+.next/
+node_modules/
+frontend/.next/
+frontend/node_modules/

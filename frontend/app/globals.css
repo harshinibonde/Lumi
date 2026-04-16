@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@import "tw-animate-css";
+
+:root {
+  --bg: #fff9ee;
+  --ink: #1d1c15;
+  --forest: #163328;
+  --forest-soft: #456255;
+  --amber: #8a5100;
+  --cream: #fff9ee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--ink);
+  min-height: 100vh;
+  background: var(--cream);
+}
+
+::selection {
+  background: rgba(96, 165, 250, 0.28);
+}
+
+.card {
+  @apply rounded-2xl bg-white/80 backdrop-blur p-5 shadow-sm border border-white;
+}
+
+.btn {
+  @apply rounded-lg px-4 py-2 font-medium transition;
+}
+
+.btn-primary {
+  @apply btn text-white;
+  background: var(--forest);
+}
+
+.btn-secondary {
+  @apply btn text-slate-800 bg-white/70 border border-white/50;
+}
+
+@layer base {
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: var(--font-sans);
+  }
+
+  :root {
+    --background: #fff9ee;
+    --foreground: #1d1c15;
+    --card: oklch(1 0 0 / 72%);
+    --card-foreground: oklch(0.21 0.035 258);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.21 0.035 258);
+    --primary: oklch(0.59 0.19 260);
+    --primary-foreground: oklch(0.99 0.005 250);
+    --secondary: oklch(0.94 0.025 275);
+    --secondary-foreground: oklch(0.25 0.045 258);
+    --muted: oklch(0.95 0.018 265);
+    --muted-foreground: oklch(0.48 0.04 258);
+    --accent: oklch(0.92 0.05 75);
+    --accent-foreground: oklch(0.25 0.045 258);
+    --destructive: oklch(0.58 0.22 25);
+    --border: oklch(1 0 0 / 48%);
+    --input: oklch(1 0 0 / 58%);
+    --ring: oklch(0.68 0.16 260);
+    --chart-1: oklch(0.68 0.16 250);
+    --chart-2: oklch(0.72 0.14 315);
+    --chart-3: oklch(0.78 0.13 76);
+    --chart-4: oklch(0.7 0.12 185);
+    --chart-5: oklch(0.61 0.13 20);
+    --radius: 0.5rem;
+    --sidebar: oklch(0.985 0.012 250);
+    --sidebar-foreground: oklch(0.21 0.035 258);
+    --sidebar-primary: oklch(0.59 0.19 260);
+    --sidebar-primary-foreground: oklch(0.99 0.005 250);
+    --sidebar-accent: oklch(0.94 0.025 275);
+    --sidebar-accent-foreground: oklch(0.25 0.045 258);
+    --sidebar-border: oklch(1 0 0 / 48%);
+    --sidebar-ring: oklch(0.68 0.16 260);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  *:focus-visible {
+    outline: 2px solid rgba(96, 165, 250, 0.5);
+    outline-offset: 3px;
+  }
+
+  body {
+    @apply text-foreground antialiased;
+  }
+}
