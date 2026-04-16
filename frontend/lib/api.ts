@@ -38,6 +38,19 @@ export interface RegisterPayload {
   role: "patient" | "caregiver";
 }
 
+export interface User {
+  id: number;
+  username: string;
+  full_name: string;
+  email: string;
+  role: string;
+  screening_due?: boolean;
+  days_overdue?: number | null;
+  days_until_due?: number | null;
+  next_due?: string | null;
+  last_screening?: string | null;
+}
+
 export interface IntakeData {
   age: number;
   gender: number;
@@ -126,6 +139,27 @@ export const apiClient = {
 
   addMemory: async (data: { category: string; content: string }) => {
     const res = await api.post("/memory", data);
+    return res.data;
+  },
+
+  // 💬 CHAT
+  sendMessage: async (message: string) => {
+    const res = await api.post("/chat/message", { message });
+    return res.data;
+  },
+
+  getChatHistory: async () => {
+    const res = await api.get("/chat/history");
+    return res.data;
+  },
+
+  // 🎙️ VOICE
+  transcribeAudio: async (file: File) => {
+    const formData = new FormData();
+    formData.append("audio", file);
+    const res = await api.post("/voice/transcribe", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return res.data;
   },
 

@@ -143,7 +143,6 @@ def _send_message_impl(
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.4,
                     max_tokens=220,
-                    timeout=LLM_TIMEOUT_SECONDS,
                 )
 
                 if completion.choices and completion.choices[0].message:

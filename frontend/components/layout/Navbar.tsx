@@ -18,6 +18,7 @@ const patientLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/screening", label: "Screening" },
   { href: "/chat", label: "Chat" },
+  { href: "/caregiver/memory", label: "Memory Vault" },
   { href: "/history", label: "History" },
   { href: "/alerts", label: "Alerts" },
 ];
