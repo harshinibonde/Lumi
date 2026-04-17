@@ -35,7 +35,7 @@ def init_db() -> None:
                 full_name TEXT,
                 email TEXT,
                 role TEXT DEFAULT 'patient',
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT 
             );
 
             CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -53,7 +53,7 @@ def init_db() -> None:
                 session_number INTEGER DEFAULT 1,
                 registration_set TEXT,
                 attention_variant TEXT,
-                started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                started_at TEXT ,
                 completed_at TEXT,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
@@ -87,7 +87,7 @@ def init_db() -> None:
                 ml_features TEXT,
                 registration_set TEXT,
                 attention_variant TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT ,
                 FOREIGN KEY(session_id) REFERENCES screening_sessions(id) ON DELETE CASCADE,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
@@ -100,17 +100,26 @@ def init_db() -> None:
                 content TEXT,
                 embedding_id TEXT,
                 ingested INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT ,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            
+            CREATE TABLE IF NOT EXISTS chat_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS chat_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
+                session_id INTEGER,
                 role TEXT,
                 content TEXT,
                 rag_context TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT ,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
@@ -123,7 +132,7 @@ def init_db() -> None:
                 response_length INTEGER,
                 vocabulary_diversity REAL,
                 alert_keywords TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT ,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY(message_id) REFERENCES chat_history(id) ON DELETE CASCADE
             );
@@ -134,7 +143,7 @@ def init_db() -> None:
                 due_date TEXT,
                 email_sent INTEGER DEFAULT 0,
                 email_sent_at TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT ,
                 FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
@@ -142,7 +151,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 caregiver_id INTEGER NOT NULL,
                 patient_id INTEGER NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT ,
                 UNIQUE(caregiver_id, patient_id),
                 FOREIGN KEY(caregiver_id) REFERENCES users(id) ON DELETE CASCADE,
                 FOREIGN KEY(patient_id) REFERENCES users(id) ON DELETE CASCADE
@@ -426,21 +435,38 @@ def get_all_patients() -> list[dict[str, Any]]:
         ).fetchall()
         return [dict(r) for r in rows]
 
-
-def save_chat(user_id: int, role: str, content: str, rag_context: str | None = None) -> int:
+def create_chat_session(user_id: int) -> int:
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO chat_history (user_id, role, content, rag_context) VALUES (?, ?, ?, ?)",
-            (user_id, role, content, rag_context),
+            "INSERT INTO chat_sessions (user_id, created_at) VALUES (?, ?)",
+            (user_id, datetime.utcnow().isoformat() + "Z"),
         )
         return int(cur.lastrowid)
 
 
-def get_chat_history(user_id: int, limit: int = 30) -> list[dict[str, Any]]:
+def get_user_chat_sessions(user_id: int) -> list[dict[str, Any]]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM chat_history WHERE user_id = ? ORDER BY id DESC LIMIT ?",
-            (user_id, limit),
+            "SELECT * FROM chat_sessions WHERE user_id = ? ORDER BY id DESC",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def save_chat(session_id: int, user_id: int, role: str, content: str, rag_context: str | None = None) -> int:
+    with get_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO chat_history (session_id, user_id, role, content, rag_context, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (session_id, user_id, role, content, rag_context, datetime.utcnow().isoformat() + "Z"),
+        )
+        return int(cur.lastrowid)
+
+
+def get_chat_history(session_id: int, limit: int = 10) -> list[dict[str, Any]]:
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM chat_history WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+            (session_id, limit),
         ).fetchall()
         return [dict(r) for r in reversed(rows)]
 

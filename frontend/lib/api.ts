@@ -143,13 +143,28 @@ export const apiClient = {
   },
 
   // 💬 CHAT
-  sendMessage: async (message: string) => {
-    const res = await api.post("/chat/message", { message });
+  createSession: async () => {
+    const res = await api.post("/chat/session");
     return res.data;
   },
 
-  getChatHistory: async () => {
-    const res = await api.get("/chat/history");
+  getSessions: async () => {
+    const res = await api.get("/chat/sessions");
+    return res.data;
+  },
+
+  sendMessage: async (message: string, sessionId: number) => {
+    const res = await api.post("/chat/message", { session_id: sessionId, message });
+    return res.data;
+  },
+
+  getChatHistory: async (sessionId: number) => {
+    const res = await api.get(`/chat/history/${sessionId}`);
+    return res.data;
+  },
+
+  triggerProactiveChat: async (sessionId: number) => {
+    const res = await api.post("/chat/proactive", { session_id: sessionId });
     return res.data;
   },
 

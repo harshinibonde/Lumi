@@ -27,6 +27,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [usedMemories, setUsedMemories] = useState(false);
   const [classification, setClassification] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<number | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -46,8 +47,19 @@ export default function ChatPage() {
         } catch { /* allow chat even if screening check fails */ }
 
         try {
-          const history = await api.getChatHistory();
-          setChat(Array.isArray(history) ? history : []);
+          const sessions = await api.getSessions();
+          let currentSessionId = null;
+          if (sessions && sessions.length > 0) {
+            currentSessionId = sessions[0].id;
+            setSessionId(currentSessionId);
+            const history = await api.getChatHistory(currentSessionId);
+            setChat(Array.isArray(history) ? history : []);
+          } else {
+            const newSess = await api.createSession();
+            currentSessionId = newSess.id;
+            setSessionId(currentSessionId);
+            setChat([]);
+          }
         } catch { setChat([]); }
       } catch {
         localStorage.removeItem("auth_token");
@@ -74,9 +86,49 @@ export default function ChatPage() {
     }
   }, [msg]);
 
+
+  // ── New Chat ────────────────────────────────────────────────────────────────
+  const createNewSession = async () => {
+    try {
+      setSending(true);
+      const res = await api.createSession();
+      setSessionId(res.id);
+      setChat([]);
+    } catch (err) {
+      console.error("Failed to create session", err);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // ── Proactive Chat ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!sessionId || sending) return;
+    const timeout = setTimeout(async () => {
+      try {
+        setSending(true);
+        const response = await api.triggerProactiveChat(sessionId);
+        if (response?.reply) {
+          const utterance = new SpeechSynthesisUtterance(response.reply);
+          utterance.rate = 0.95;
+          utterance.pitch = 1.0;
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        }
+        const history = await api.getChatHistory(sessionId);
+        setChat(Array.isArray(history) ? history : []);
+      } catch (err) {
+        console.error("Proactive failed", err);
+      } finally {
+        setSending(false);
+      }
+    }, 60000); // Trigger after 60s of inactivity
+    return () => clearTimeout(timeout);
+  }, [sessionId, chat, sending]);
+
   // ── Send message ────────────────────────────────────────────────────────────
   const send = async () => {
-    if (!msg.trim() || sending) return;
+    if (!msg.trim() || sending || !sessionId) return;
     const userMessage = msg.trim();
 
     // Optimistic UI — add user message immediately
@@ -86,7 +138,7 @@ export default function ChatPage() {
     setSending(true);
 
     try {
-      const response = await api.sendMessage(userMessage);
+      const response = await api.sendMessage(userMessage, sessionId);
       setUsedMemories(Boolean(response?.context_used));
       setClassification(response?.classification || null);
 
@@ -100,7 +152,7 @@ export default function ChatPage() {
       }
 
       // Refresh full history from server
-      const history = await api.getChatHistory();
+      const history = await api.getChatHistory(sessionId);
       setChat(Array.isArray(history) ? history : []);
     } catch (err: any) {
       console.error("Chat send error:", err);
@@ -123,7 +175,7 @@ export default function ChatPage() {
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return "";
     try {
-      return new Date(dateStr).toLocaleTimeString("en-US", {
+      return new Date(dateStr).toLocaleTimeString([], {
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
@@ -152,6 +204,24 @@ export default function ChatPage() {
 
       {/* Main chat area — fills remaining space */}
       <div className="flex-1 flex flex-col pt-20 pb-0 max-w-3xl w-full mx-auto px-4 sm:px-6">
+        
+        {/* Header Controls */}
+        <div className="flex justify-between items-center mb-2">
+          <div>
+            <p className="text-[#163328]/50 text-xs font-medium tracking-widest uppercase mb-1">Your Memory Companion</p>
+            <h1 className="text-2xl font-light text-[#163328] tracking-tight">Lumi</h1>
+          </div>
+          <button
+            onClick={createNewSession}
+            disabled={sending}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-[#163328]/15 bg-white text-sm font-medium text-[#163328] hover:bg-[#163328]/5 transition-colors disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            New Chat
+          </button>
+        </div>
 
         {/* Status badges */}
         {(classification || usedMemories) && (

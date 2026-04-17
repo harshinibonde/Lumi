@@ -85,50 +85,32 @@ def ingest_chat_message(user_id: int, message_id: int, content: str, role: str) 
     )
 
 
-def retrieve_context(user_id: int, query: str, n_results: int = 4) -> str:
-    """Retrieve caregiver and chat context relevant to current query."""
-    if not _rag_ready or _encoder is None or caregiver_collection is None or chat_collection is None:
+def retrieve_top_k_memories(user_id: int, query: str, k: int = 3) -> str:
+    """Retrieve top-K most relevant memories for the user based on the query."""
+    if not _rag_ready or _encoder is None or caregiver_collection is None:
         return ""
 
     q_emb = _encoder.encode(query).tolist()
 
-    caregiver_res = caregiver_collection.query(
+    res = caregiver_collection.query(
         query_embeddings=[q_emb],
-        n_results=n_results,
-        where={"user_id": int(user_id)},
-    )
-    chat_res = chat_collection.query(
-        query_embeddings=[q_emb],
-        n_results=n_results,
+        n_results=k,
         where={"user_id": int(user_id)},
     )
 
-    caregiver_docs = (caregiver_res.get("documents", [[]]) or [[]])[0][:3]
-    caregiver_dist = (caregiver_res.get("distances", [[]]) or [[]])[0][:3]
-    chat_docs = (chat_res.get("documents", [[]]) or [[]])[0][:3]
-    chat_dist = (chat_res.get("distances", [[]]) or [[]])[0][:3]
+    docs = (res.get("documents", [[]]) or [[]])[0]
+    dists = (res.get("distances", [[]]) or [[]])[0]
 
-    caregiver_lines = [
+    lines = [
         f"- {doc}"
-        for doc, dist in zip(caregiver_docs, caregiver_dist)
+        for doc, dist in zip(docs, dists)
         if dist is None or float(dist) < 0.8
     ]
-    chat_lines = [
-        f"- {doc}"
-        for doc, dist in zip(chat_docs, chat_dist)
-        if dist is None or float(dist) < 0.7
-    ]
 
-    if not caregiver_lines and not chat_lines:
+    if not lines:
         return ""
 
-    caregiver_section = "[What caregivers have shared about this patient:]\n" + (
-        "\n".join(caregiver_lines) if caregiver_lines else "- None"
-    )
-    chat_section = "[From recent conversations with this patient:]\n" + (
-        "\n".join(chat_lines) if chat_lines else "- None"
-    )
-    return f"{caregiver_section}\n\n{chat_section}"
+    return "[User memories:]\n" + "\n".join(lines)
 
 
 def rag_status() -> str:
