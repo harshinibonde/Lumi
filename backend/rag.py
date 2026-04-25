@@ -86,31 +86,50 @@ def ingest_chat_message(user_id: int, message_id: int, content: str, role: str) 
 
 
 def retrieve_top_k_memories(user_id: int, query: str, k: int = 3) -> str:
-    """Retrieve top-K most relevant memories for the user based on the query."""
+    """Retrieve top-K most relevant memories for the user based on the query.
+    Searches both caregiver memory vault AND past chat messages.
+    """
     if not _rag_ready or _encoder is None or caregiver_collection is None:
         return ""
 
     q_emb = _encoder.encode(query).tolist()
+    lines: list[str] = []
 
-    res = caregiver_collection.query(
-        query_embeddings=[q_emb],
-        n_results=k,
-        where={"user_id": int(user_id)},
-    )
+    # ── 1. Caregiver Memory Vault ──────────────────────────────────────────
+    try:
+        res = caregiver_collection.query(
+            query_embeddings=[q_emb],
+            n_results=k,
+            where={"user_id": int(user_id)},
+        )
+        docs = (res.get("documents", [[]]) or [[]])[0]
+        dists = (res.get("distances", [[]]) or [[]])[0]
+        for doc, dist in zip(docs, dists):
+            if dist is None or float(dist) < 0.8:
+                lines.append(f"[Memory Vault] {doc}")
+    except Exception:
+        logger.exception("Caregiver memory retrieval failed")
 
-    docs = (res.get("documents", [[]]) or [[]])[0]
-    dists = (res.get("distances", [[]]) or [[]])[0]
-
-    lines = [
-        f"- {doc}"
-        for doc, dist in zip(docs, dists)
-        if dist is None or float(dist) < 0.8
-    ]
+    # ── 2. Past Chat Messages  ─────────────────────────────────────────────
+    if chat_collection is not None:
+        try:
+            chat_res = chat_collection.query(
+                query_embeddings=[q_emb],
+                n_results=k,
+                where={"user_id": int(user_id)},
+            )
+            chat_docs = (chat_res.get("documents", [[]]) or [[]])[0]
+            chat_dists = (chat_res.get("distances", [[]]) or [[]])[0]
+            for doc, dist in zip(chat_docs, chat_dists):
+                if dist is None or float(dist) < 1.0:  # slightly looser for chat
+                    lines.append(f"[Past conversation] {doc}")
+        except Exception:
+            logger.exception("Chat memory retrieval failed")
 
     if not lines:
         return ""
 
-    return "[User memories:]\n" + "\n".join(lines)
+    return "[Relevant context from memory and past conversations:]\n" + "\n".join(lines)
 
 
 def rag_status() -> str:
