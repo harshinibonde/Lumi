@@ -185,3 +185,26 @@ def debug_ingest() -> dict:
         "ingested_now": ingested,
         "pending_after": len(pending_after),
     }
+
+
+@app.get("/debug/reingest")
+def debug_reingest() -> dict:
+    """Reset all memories to pending=0 and re-ingest into correct ChromaDB path."""
+    import os
+    from database import get_conn, get_uningest_memories
+    from rag import ingest_pending_memories
+
+    # Reset all memories to ingested=0 so they get picked up again
+    with get_conn() as conn:
+        total = conn.execute("SELECT COUNT(*) FROM caregiver_memories").fetchone()[0]
+        conn.execute("UPDATE caregiver_memories SET ingested = 0, embedding_id = NULL")
+
+    ingested = ingest_pending_memories()
+    pending_after = get_uningest_memories()
+
+    return {
+        "total_memories_reset": total,
+        "ingested_now": ingested,
+        "pending_after": len(pending_after),
+        "chroma_dir": os.getenv("CHROMA_DIR", "NOT_SET"),
+    }
