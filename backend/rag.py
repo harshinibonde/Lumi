@@ -33,7 +33,7 @@ def _initialize_rag() -> None:
         caregiver_collection = _client.get_or_create_collection("caregiver_memories")
         chat_collection = _client.get_or_create_collection("chat_memories")
         _rag_ready = True
-        logger.info("RAG initialized with persist_directory=%s", PERSIST_DIRECTORY)
+        logger.info("RAG initialized with persist_directory=%s", CHROMA_PATH)
     except Exception:
         _rag_ready = False
         logger.exception("RAG initialization failed")
