@@ -160,3 +160,28 @@ def health() -> dict:
         "rag": rag_status(),
         "llm": llm_status(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Debug — force ingest (temporary, remove after debugging)
+# ---------------------------------------------------------------------------
+@app.get("/debug/ingest")
+def debug_ingest() -> dict:
+    """Force-run memory ingestion and return detailed status."""
+    import os
+    from database import get_uningest_memories
+    from rag import _rag_ready, caregiver_collection, ingest_pending_memories
+
+    pending_before = get_uningest_memories()
+    ingested = ingest_pending_memories()
+    pending_after = get_uningest_memories()
+
+    return {
+        "chroma_dir": os.getenv("CHROMA_DIR", "NOT_SET"),
+        "db_path": os.getenv("DB_PATH", "NOT_SET"),
+        "rag_ready": _rag_ready,
+        "collection_exists": caregiver_collection is not None,
+        "pending_before": len(pending_before),
+        "ingested_now": ingested,
+        "pending_after": len(pending_after),
+    }
