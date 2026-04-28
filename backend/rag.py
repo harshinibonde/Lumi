@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 
 import chromadb
@@ -10,8 +11,8 @@ from database import get_uningest_memories, mark_ingested
 
 BASE_DIR = Path(__file__).parent
 logger = logging.getLogger(__name__)
-PERSIST_DIRECTORY = "chroma_db"
-CHROMA_PATH = BASE_DIR / PERSIST_DIRECTORY
+# Use CHROMA_DIR env var (set on Railway to /app/data/chroma_db) or fall back to local path
+CHROMA_PATH = Path(os.getenv("CHROMA_DIR", str(BASE_DIR / "chroma_db")))
 
 _client: chromadb.PersistentClient | None = None
 _encoder: SentenceTransformer | None = None
