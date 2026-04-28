@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -187,6 +187,17 @@ export const apiClient = {
   // Links a patient to the authenticated caregiver
   linkPatient: async (patientId: number) => {
     const res = await api.post("/analytics/caregiver/link", { patient_id: patientId });
+    return res.data;
+  },
+
+  // 🚨 ALERTS
+  getChatSignals: async (userId: number) => {
+    const res = await api.get(`/chat/signals/${userId}`);
+    return res.data;
+  },
+
+  getMyAnalytics: async () => {
+    const res = await api.get("/analytics/me");
     return res.data;
   },
 };
