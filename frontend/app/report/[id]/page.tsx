@@ -27,7 +27,7 @@ export default function ReportPage({ params }: { params: { id: string } }) {
         const meData = await api.getMe();
 
         // GET /ml/results/{user_id} — fetch all results, then find the matching one
-        const results = await api.getResults(meData.id);
+        const results = await api.getResults();
         const match = results.find(
           (r: any) => String(r.id) === params.id || String(r.session_id) === params.id
         );
