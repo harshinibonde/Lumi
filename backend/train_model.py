@@ -6,6 +6,8 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")  # headless backend — no display required
 import matplotlib.pyplot as plt
 
 from imblearn.over_sampling import SMOTE
@@ -210,13 +212,15 @@ def train() -> None:
     plt.ylabel('Score')
     plt.xticks(x, classes)
     plt.legend()
-    plt.show()
+    plt.savefig(BASE_DIR / "plot_per_class_performance.png", dpi=100)
+    plt.close()
 
     # 2. Confusion Matrix
     cm = confusion_matrix(y_test, y_pred)
     ConfusionMatrixDisplay(cm).plot()
     plt.title("Confusion Matrix")
-    plt.show()
+    plt.savefig(BASE_DIR / "plot_confusion_matrix.png", dpi=100)
+    plt.close()
 
     # 3. ROC Curve (Multiclass)
     y_test_bin = label_binarize(y_test, classes=[0, 1, 2, 3])
@@ -231,7 +235,8 @@ def train() -> None:
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.legend()
-    plt.show()
+    plt.savefig(BASE_DIR / "plot_roc_curve.png", dpi=100)
+    plt.close()
 
     # 4. Precision-Recall Curve
     plt.figure()
@@ -243,7 +248,8 @@ def train() -> None:
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.legend()
-    plt.show()
+    plt.savefig(BASE_DIR / "plot_precision_recall.png", dpi=100)
+    plt.close()
 
     # 5. Cross-validation with StratifiedKFold
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -268,7 +274,8 @@ def train() -> None:
     plt.title("Cross-Validation Scores")
     plt.xlabel("Fold")
     plt.ylabel("Accuracy")
-    plt.show()
+    plt.savefig(BASE_DIR / "plot_cv_scores.png", dpi=100)
+    plt.close()
 
     print("MODEL RETRAIN SUCCESS")
 
