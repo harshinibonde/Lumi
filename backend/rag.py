@@ -55,17 +55,20 @@ def ingest_pending_memories() -> int:
 
     count = 0
     for item in pending:
-        text = f"[{item['category']}] {item['content']}"
-        embedding = _encoder.encode(text).tolist()
-        doc_id = f"memory-{item['id']}"
-        caregiver_collection.add(
-            ids=[doc_id],
-            documents=[text],
-            embeddings=[embedding],
-            metadatas=[{"user_id": int(item["user_id"]), "caregiver_id": int(item["caregiver_id"] or 0)}],
-        )
-        mark_ingested(int(item["id"]), doc_id)
-        count += 1
+        try:
+            text = f"[{item['category']}] {item['content']}"
+            embedding = _encoder.encode(text).tolist()
+            doc_id = f"memory-{item['id']}"
+            caregiver_collection.add(
+                ids=[doc_id],
+                documents=[text],
+                embeddings=[embedding],
+                metadatas=[{"user_id": int(item["user_id"]), "caregiver_id": int(item["caregiver_id"] or 0)}],
+            )
+            mark_ingested(int(item["id"]), doc_id)
+            count += 1
+        except Exception:
+            logger.exception("Failed to ingest memory_id=%s", item.get('id'))
     logger.info("RAG ingestion: ingested %s memory records", count)
     return count
 
@@ -98,16 +101,18 @@ def retrieve_top_k_memories(user_id: int, query: str, k: int = 3) -> str:
 
     # ── 1. Caregiver Memory Vault ──────────────────────────────────────────
     try:
-        res = caregiver_collection.query(
-            query_embeddings=[q_emb],
-            n_results=k,
-            where={"user_id": int(user_id)},
-        )
-        docs = (res.get("documents", [[]]) or [[]])[0]
-        dists = (res.get("distances", [[]]) or [[]])[0]
-        for doc, dist in zip(docs, dists):
-            if dist is None or float(dist) < 0.8:
-                lines.append(f"[Memory Vault] {doc}")
+        total_docs = caregiver_collection.count()
+        if total_docs > 0:
+            res = caregiver_collection.query(
+                query_embeddings=[q_emb],
+                n_results=min(k, total_docs),
+                where={"user_id": int(user_id)},
+            )
+            docs = (res.get("documents", [[]]) or [[]])[0]
+            dists = (res.get("distances", [[]]) or [[]])[0]
+            for doc, dist in zip(docs, dists):
+                if dist is None or float(dist) < 0.8:
+                    lines.append(f"[Memory Vault] {doc}")
     except Exception:
         logger.exception("Caregiver memory retrieval failed")
 
