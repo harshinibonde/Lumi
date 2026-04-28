@@ -1,4 +1,5 @@
 *.db
+backend/*.pkl
 models/*.pkl
 backend/models/*.pkl
 chroma_db/
